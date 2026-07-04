@@ -4,9 +4,13 @@
 
 ## 界面截图
 
-| 首页 | 调研结果 |
-|------|---------|
-| ![首页](docs/images/屏幕截图%202026-07-04%20154427.png) | ![结果](docs/images/屏幕截图%202026-07-04%20154818.png) |
+| 首页 | 调研执行中 | 最终报告 |
+|------|-----------|---------|
+| ![首页](docs/images/homepage-input.png) | ![执行中](docs/images/progress-searching.png) | ![报告](docs/images/report-full.png) |
+
+### 测试
+
+![pytest](docs/images/test-pytest.png)
 
 ## 系统架构
 

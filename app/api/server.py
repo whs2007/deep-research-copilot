@@ -83,12 +83,12 @@ async def get_user(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
         return {"user_id": user_id, "display_name": user_id}
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# 前端静态文件服务
+# 前端静态文件（通过 /ui 访问，避免与 API 路由冲突）
 frontend_path = Path(__file__).parent.parent.parent / "frontend"
 if frontend_path.exists():
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
-    logger.info(f"前端静态文件已挂载: {frontend_path}")
+    app.mount("/ui", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    logger.info(f"前端静态文件已挂载: http://localhost:8001/ui")
 else:
     logger.warning(f"前端目录不存在: {frontend_path}")
 

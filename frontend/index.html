@@ -53,74 +53,81 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 .example-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .example-btn{padding:6px 14px;background:#21262d;border:1px solid #30363d;border-radius:20px;color:#8b949e;font-size:12px;cursor:pointer}
 .example-btn:hover{background:#30363d;color:#e1e4e8}
-.history-overlay{position:fixed;top:0;right:0;width:380px;height:100vh;background:#161b22;border-left:1px solid #30363d;z-index:100;transform:translateX(100%);transition:transform .25s;overflow-y:auto}
-.history-overlay.open{transform:translateX(0)}
-.history-head{padding:16px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
-.history-head h3{font-size:15px;color:#e1e4e8}
-.history-head button{background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer}
-.history-list{padding:8px}
-.history-item{padding:12px;border-bottom:1px solid #21262d;cursor:pointer;border-radius:6px}
-.history-item:hover{background:#21262d}
-.history-item .hi-topic{font-size:14px;color:#e1e4e8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.history-item .hi-meta{font-size:11px;color:#484f58;display:flex;gap:12px}
-.history-item .hi-meta b{color:#8b949e}
-.history-empty{padding:40px;text-align:center;color:#484f58;font-size:13px}
+
+/* 左侧历史栏 */
+.app-layout{display:flex;height:calc(100vh - 57px)}
+.sidebar{width:280px;min-width:280px;background:#161b22;border-right:1px solid #30363d;overflow-y:auto;display:flex;flex-direction:column}
+.sidebar-head{padding:14px 16px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#161b22;z-index:1}
+.sidebar-head h3{font-size:13px;color:#e1e4e8}
+.sidebar-head button{background:none;border:none;color:#8b949e;font-size:14px;cursor:pointer;padding:4px 8px;border-radius:4px}
+.sidebar-head button:hover{background:#21262d}
+.sidebar-list{flex:1;overflow-y:auto;padding:6px}
+.sidebar-item{padding:10px 12px;border-radius:6px;cursor:pointer;margin-bottom:2px}
+.sidebar-item:hover{background:#21262d}
+.sidebar-item.active{background:#1a3a5c;border:1px solid #1f6feb44}
+.sidebar-item .si-topic{font-size:13px;color:#e1e4e8;margin-bottom:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sidebar-item .si-meta{font-size:10px;color:#484f58;display:flex;gap:10px}
+.sidebar-item .si-meta b{color:#8b949e}
+.sidebar-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#484f58;font-size:13px;text-align:center;padding:20px}
+.main-content{flex:1;overflow-y:auto;padding:20px 24px}
 </style>
 </head>
 <body>
 <div class="header">
   <h1>深度研报</h1>
-  <span>AI 企业调研助手 · Planner → Search → Critic → Synthesizer</span>
-  <button onclick="toggleHistory()" style="margin-left:auto;padding:6px 14px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e1e4e8;font-size:12px;cursor:pointer">📋 历史记录</button>
-  <span style="font-size:11px;color:#484f58" id="userBadge"></span>
+  <span>AI 企业调研助手</span>
+  <span style="margin-left:auto;font-size:11px;color:#484f58" id="userBadge"></span>
   <span style="font-size:12px" id="connStatus">⚫ 待命</span>
 </div>
 
-<div class="container">
-  <div class="input-area">
-    <input id="topicInput" placeholder="输入调研主题，例如：2026年中国新能源汽车市场竞争格局" />
-    <select id="maxIter">
-      <option value="1">1轮</option><option value="2">2轮</option><option value="3" selected>3轮</option><option value="4">4轮</option><option value="5">5轮</option>
-    </select>
-    <button id="submitBtn" onclick="startResearch()">🔍 开始调研</button>
-  </div>
-
-  <div class="status-bar">
-    <div class="status-item"><span class="status-dot" id="statusDot"></span><span id="statusText">等待输入</span></div>
-    <div class="status-item">⏱️ 已用时: <b id="timerBadge">00:00</b></div>
-    <div class="status-item">📊 轮次: <b id="iterationBadge">-</b></div>
-    <div class="status-item">📄 证据: <b id="evidenceBadge">-</b></div>
-    <div class="status-item">⭐ 质量: <b id="qualityBadge">-</b></div>
-  </div>
-
-  <div class="progress-panel" id="progressPanel">
-    <h3>📡 实时执行轨迹</h3>
-    <div id="progressList"></div>
-  </div>
-
-  <div id="reportPanel"></div>
-
-  <div id="emptyState" class="empty-state">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-    <p><b>输入调研主题，开始自动化深度调研</b></p>
-    <p style="font-size:12px">Planner → Search → Critic → Synthesizer 四阶段流水线</p>
-    <div class="example-bar">
-      <button class="example-btn" onclick="setTopic('2026年中国新能源汽车市场竞争格局')">新能源汽车</button>
-      <button class="example-btn" onclick="setTopic('AI芯片市场2026 NVIDIA AMD Intel')">AI芯片</button>
-      <button class="example-btn" onclick="setTopic('光伏产业技术路线TOPCon vs HJT')">光伏产业</button>
-      <button class="example-btn" onclick="setTopic('全球半导体供应链重构趋势')">半导体</button>
-      <button class="example-btn" onclick="setTopic('氢能产业链投资机会分析2026')">氢能</button>
+<div class="app-layout">
+  <!-- 左侧：历史对话栏 -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <h3>📋 历史对话</h3>
+      <button onclick="loadHistory()" title="刷新">🔄</button>
+    </div>
+    <div class="sidebar-list" id="sidebarList">
+      <div class="sidebar-empty">加载中…</div>
     </div>
   </div>
-</div>
 
-<div class="history-overlay" id="historyPanel">
-  <div class="history-head">
-    <h3>📋 历史记录</h3>
-    <button onclick="toggleHistory()">✕</button>
-  </div>
-  <div class="history-list" id="historyList">
-    <div class="history-empty">加载中…</div>
+  <!-- 右侧：主内容区 -->
+  <div class="main-content">
+    <div class="input-area">
+      <input id="topicInput" placeholder="输入调研主题，例如：2026年中国新能源汽车市场竞争格局" />
+      <select id="maxIter">
+        <option value="1">1轮</option><option value="2">2轮</option><option value="3" selected>3轮</option><option value="4">4轮</option><option value="5">5轮</option>
+      </select>
+      <button id="submitBtn" onclick="startResearch()">🔍 开始调研</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item"><span class="status-dot" id="statusDot"></span><span id="statusText">等待输入</span></div>
+      <div class="status-item">⏱️ <b id="timerBadge">00:00</b></div>
+      <div class="status-item">📊 轮次: <b id="iterationBadge">-</b></div>
+      <div class="status-item">📄 证据: <b id="evidenceBadge">-</b></div>
+      <div class="status-item">⭐ 质量: <b id="qualityBadge">-</b></div>
+    </div>
+
+    <div class="progress-panel" id="progressPanel">
+      <h3>📡 实时执行轨迹</h3>
+      <div id="progressList"></div>
+    </div>
+
+    <div id="reportPanel"></div>
+
+    <div id="emptyState" class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      <p><b>输入调研主题，开始自动化深度调研</b></p>
+      <div class="example-bar">
+        <button class="example-btn" onclick="setTopic('2026年中国新能源汽车市场竞争格局')">新能源汽车</button>
+        <button class="example-btn" onclick="setTopic('AI芯片市场2026 NVIDIA AMD Intel')">AI芯片</button>
+        <button class="example-btn" onclick="setTopic('光伏产业技术路线TOPCon vs HJT')">光伏产业</button>
+        <button class="example-btn" onclick="setTopic('全球半导体供应链重构趋势')">半导体</button>
+        <button class="example-btn" onclick="setTopic('氢能产业链投资机会分析2026')">氢能</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -156,44 +163,42 @@ function setTopic(t) { document.getElementById('topicInput').value = t; }
 
 function $(id) { return document.getElementById(id); }
 
-// 历史记录面板
-function toggleHistory() {
-  $('historyPanel').classList.toggle('open');
-  if ($('historyPanel').classList.contains('open')) loadHistory();
-}
-
+// 历史记录侧边栏
 async function loadHistory() {
-  const list = $('historyList');
-  list.innerHTML = '<div class="history-empty">加载中…</div>';
+  const list = $('sidebarList');
+  list.innerHTML = '<div class="sidebar-empty">加载中…</div>';
   try {
-    const resp = await fetch(`${API}/api/history?limit=30`, { headers: {'X-User-ID': USER_ID} });
+    const resp = await fetch(`${API}/api/history?limit=50`, { headers: {'X-User-ID': USER_ID} });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const reports = await resp.json();
     if (!reports.length) {
-      list.innerHTML = '<div class="history-empty">暂无历史记录<br><small>完成一次调研后会自动保存</small></div>';
+      list.innerHTML = '<div class="sidebar-empty">暂无对话<br><small>完成调研后自动保存</small></div>';
       return;
     }
     list.innerHTML = reports.map(r => `
-      <div class="history-item" onclick="loadReport('${r.session_id}')">
-        <div class="hi-topic">${escHtml(r.topic)}</div>
-        <div class="hi-meta">
-          <span>⭐ <b>${(r.fact_quality_score||0).toFixed(2)}</b></span>
-          <span>📄 <b>${r.evidence_count||0}条</b></span>
-          <span>🔄 <b>${r.iteration_count||0}轮</b></span>
-          <span>${(r.created_at||'').slice(0,10)}</span>
+      <div class="sidebar-item" onclick="loadReport('${r.session_id}')" data-sid="${r.session_id}">
+        <div class="si-topic">${escHtml(r.topic)}</div>
+        <div class="si-meta">
+          <span>⭐<b>${(r.fact_quality_score||0).toFixed(2)}</b></span>
+          <span>📄<b>${r.evidence_count||0}</b></span>
+          <span>🔄<b>${r.iteration_count||0}轮</b></span>
         </div>
+        <div class="si-meta" style="margin-top:2px">${(r.created_at||'').slice(0,16)}</div>
       </div>
     `).join('');
   } catch(e) {
-    list.innerHTML = `<div class="history-empty">加载失败: ${escHtml(e.message)}</div>`;
+    list.innerHTML = `<div class="sidebar-empty">加载失败<br><small>${escHtml(e.message)}</small></div>`;
   }
 }
 
 async function loadReport(sessionId) {
+  $('reportPanel').innerHTML = '<p style="color:#8b949e">加载中…</p>';
+  $('emptyState').style.display = 'none';
+  // 高亮选中
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  const active = document.querySelector(`.sidebar-item[data-sid="${sessionId}"]`);
+  if (active) active.classList.add('active');
   try {
-    $('reportPanel').innerHTML = '<p style="color:#8b949e">加载中…</p>';
-    $('emptyState').style.display = 'none';
-    toggleHistory();
     const resp = await fetch(`${API}/api/report/${sessionId}`, { headers: {'X-User-ID': USER_ID} });
     if (!resp.ok) throw new Error('报告不存在');
     const r = await resp.json();
@@ -205,6 +210,9 @@ async function loadReport(sessionId) {
     $('reportPanel').innerHTML = `<p style="color:#f85149">加载失败: ${escHtml(e.message)}</p>`;
   }
 }
+
+// 页面加载时自动加载历史
+loadHistory();
 
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -347,6 +355,7 @@ async function startResearch() {
           } else if (msg.type === 'report') {
             stopTimer();
             setStatus('done', '调研完成');
+            setTimeout(loadHistory, 500);  // 等 MySQL 写入后刷新历史
             $('reportPanel').innerHTML = renderMarkdown(msg.data || '');
           } else if (msg.type === 'error') {
             stopTimer();

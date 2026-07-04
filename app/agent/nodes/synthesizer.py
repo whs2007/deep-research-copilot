@@ -18,8 +18,14 @@ async def synthesizer_node(state: ResearchState) -> dict:
 
     prompt = PromptTemplate(
         template=SYNTHESIZER_PROMPT,
-        input_variables=["research_topic"],
+        input_variables=[
+            "research_topic", "verified_facts", "evidence_pool",
+            "rejected_facts", "research_plan", "missing_angles",
+            "fact_quality_score", "report_ready",
+        ],
     )
+    writer = runtime.stream_writer
+    writer({"type": "progress", "node": "synthesizer", "status": "running"})
     chain = prompt | model | StrOutputParser()
 
     report = await chain.ainvoke({

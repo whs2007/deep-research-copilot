@@ -11,13 +11,23 @@ from app.agent.state import ResearchState
 from app.prompt.prompts import PLANNER_PROMPT
 
 
-async def planner_node(state: ResearchState) -> dict:
+async def planner_node(state: ResearchState, runtime: Runtime) -> dict:
     """拆解调研问题，输出研究计划和搜索查询"""
 
-    # 已在第 1 轮之外，只补充缺失角度
+    writer = runtime.stream_writer
+    writer({"type": "progress", "node": "planner", "status": "running"})
+
+    # 非首轮且无缺失角度 → 直接标记就绪，跳过空转
     missing = state.get("missing_angles", [])
-    if state.get("iteration_count", 0) > 0 and not missing:
-        return {"search_queries": [], "iteration_count": state["iteration_count"]}
+    if state.get("iteration_count", 0) > 0:
+        if not missing:
+            writer({"type": "progress", "node": "planner", "status": "complete"})
+            return {
+                "report_ready": True,
+                "iteration_count": state["iteration_count"],
+            }
+        # 有缺失角度 → 限制 query 数量到 5 条
+        max_q = 5
 
     prompt = PromptTemplate(
         template=PLANNER_PROMPT,
@@ -34,7 +44,12 @@ async def planner_node(state: ResearchState) -> dict:
         "max_iterations": state.get("max_iterations", 3),
     })
 
+    queries = result.get("search_queries", [])
+    writer({"type": "progress", "node": "planner", "status": "complete",
+            "plan_count": len(result.get("research_plan", [])),
+            "query_count": len(queries)})
+
     return {
         "research_plan": result.get("research_plan", []),
-        "search_queries": result.get("search_queries", []),
+        "search_queries": queries,
     }

@@ -17,7 +17,7 @@ from pathlib import Path
 from app.agent.graph import graph
 from app.agent.state import ResearchState
 from app.db.connection import get_db, init_db
-from app.db.models import ResearchReport, UserSession
+from app.db.models import User, ResearchReport, UserSession
 from app.core.logging import logger
 from app.core.context import (
     set_user_context, reset_context, get_current_user, set_session_context
@@ -43,10 +43,44 @@ class ReportResponse(BaseModel):
 app = FastAPI(title="深度研报 — AI企业调研助手", version="1.0.0")
 
 
+def _ensure_user(user_id: str) -> None:
+    """确保用户存在于数据库中（自动注册）"""
+    try:
+        from app.db.connection import SessionLocal
+        db = SessionLocal()
+        existing = db.query(User).filter_by(user_id=user_id).first()
+        if not existing:
+            db.add(User(user_id=user_id, display_name=f"用户_{user_id[:8]}"))
+            db.commit()
+        else:
+            existing.last_active_at = datetime.utcnow()
+            db.commit()
+        db.close()
+    except Exception:
+        pass  # MySQL 不可用时跳过
+
+
 @app.get("/health")
 async def health():
     """健康检查端点（Docker HEALTHCHECK / K8s liveness probe）"""
     return {"status": "healthy", "version": "1.0.0"}
+
+@app.get("/api/user")
+async def get_user(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
+    """获取当前用户信息（自动注册）"""
+    user_id = x_user_id or "anonymous"
+    _ensure_user(user_id)
+    try:
+        from app.db.connection import SessionLocal
+        db = SessionLocal()
+        u = db.query(User).filter_by(user_id=user_id).first()
+        result = {"user_id": user_id, "display_name": u.display_name if u else user_id,
+                  "total_reports": u.total_reports if u else 0,
+                  "created_at": str(u.created_at) if u else None}
+        db.close()
+        return result
+    except Exception:
+        return {"user_id": user_id, "display_name": user_id}
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # 前端静态文件服务
@@ -125,6 +159,7 @@ async def research_stream_simple(
 ):
     """SSE 流式调研（ContextVar 自动注入用户上下文）"""
     user_id = x_user_id or "anonymous"
+    _ensure_user(user_id)
     set_user_context(user_id)
     state: ResearchState = {
         "research_topic": topic, "research_plan": [], "search_queries": [],
@@ -148,13 +183,18 @@ async def research_stream_simple(
                 from app.db.connection import SessionLocal
                 db = SessionLocal()
                 db.add(ResearchReport(
-                    session_id=sid, topic=topic, final_report=report_text,
+                    session_id=sid, user_id=user_id, topic=topic, final_report=report_text,
                     fact_quality_score=final.get('fact_quality_score',0.0),
                     iteration_count=final.get('iteration_count',0),
                     evidence_count=len(final.get('evidence_pool',[])),
                     status='completed', completed_at=datetime.utcnow()))
                 db.add(UserSession(session_id=sid, user_id=user_id, topic=topic,
                                    max_iterations=max_iterations, status='completed'))
+                # 更新用户报告计数
+                u = db.query(User).filter_by(user_id=user_id).first()
+                if u:
+                    u.total_reports = (u.total_reports or 0) + 1
+                    u.last_active_at = datetime.utcnow()
                 db.commit(); db.close()
             except Exception as e:
                 logger.warning(f"MySQL 保存失败: {e}")
@@ -179,9 +219,7 @@ async def list_reports(
     """查询当前用户的历史调研报告（ContextVar 自动获取用户身份）"""
     user_id = x_user_id or get_current_user()
     reports = db.query(ResearchReport).filter(
-        ResearchReport.session_id.in_(
-            db.query(UserSession.session_id).filter(UserSession.user_id == user_id)
-        )
+        ResearchReport.user_id == user_id
     ).order_by(ResearchReport.created_at.desc()).limit(limit).all()
     return [{
         "session_id": r.session_id, "topic": r.topic, "status": r.status,

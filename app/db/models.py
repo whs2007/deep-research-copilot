@@ -1,14 +1,30 @@
 """
 MySQL 数据模型 — SQLAlchemy ORM
-三张表：research_reports / evidence_cache / sessions
+四张表：users / research_reports / evidence_cache / user_sessions
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, relationship
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    """用户表 — 账号与个人信息"""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(128), unique=True, index=True, nullable=False)  # 对外用户标识
+    display_name = Column(String(100), default="未命名用户")
+    total_reports = Column(Integer, default=0)         # 累计报告数
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_active_at = Column(DateTime, default=datetime.utcnow)
+
+    # 关联：一个用户有多份报告
+    reports = relationship("ResearchReport", back_populates="user")
+    sessions = relationship("UserSession", back_populates="user")
 
 
 class ResearchReport(Base):
@@ -17,15 +33,18 @@ class ResearchReport(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String(36), index=True, nullable=False)
+    user_id = Column(String(128), ForeignKey("users.user_id"), index=True, nullable=False)
     topic = Column(String(500), nullable=False)
-    final_report = Column(Text)                       # Markdown 完整报告
-    fact_quality_score = Column(Float, default=0.0)   # Critic 评分
-    iteration_count = Column(Integer, default=0)       # 实际迭代次数
-    evidence_count = Column(Integer, default=0)        # 证据总数
-    status = Column(String(20), default="completed")   # running / completed / failed
-    error_message = Column(Text)                       # 失败时的错误信息
+    final_report = Column(Text)
+    fact_quality_score = Column(Float, default=0.0)
+    iteration_count = Column(Integer, default=0)
+    evidence_count = Column(Integer, default=0)
+    status = Column(String(20), default="completed")
+    error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
+
+    user = relationship("User", back_populates="reports")
 
 
 class EvidenceCache(Base):
@@ -33,23 +52,25 @@ class EvidenceCache(Base):
     __tablename__ = "evidence_cache"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    query_hash = Column(String(64), unique=True, index=True)  # SHA256(query)
+    query_hash = Column(String(64), unique=True, index=True)
     query_text = Column(String(500))
-    evidence_json = Column(JSON)                    # 缓存的证据列表
-    hit_count = Column(Integer, default=0)           # 命中次数
+    evidence_json = Column(JSON)
+    hit_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime)                     # TTL 过期时间
+    expires_at = Column(DateTime)
 
 
 class UserSession(Base):
-    """用户会话 — 多用户隔离"""
+    """调研会话 — 每次调研任务的执行记录"""
     __tablename__ = "user_sessions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String(36), unique=True, index=True, nullable=False)
-    user_id = Column(String(128), index=True, default="anonymous")
+    user_id = Column(String(128), ForeignKey("users.user_id"), index=True, nullable=False)
     topic = Column(String(500))
-    status = Column(String(20), default="pending")    # pending / queued / running / completed / failed
+    status = Column(String(20), default="pending")
     max_iterations = Column(Integer, default=3)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="sessions")

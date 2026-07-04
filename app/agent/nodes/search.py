@@ -86,10 +86,13 @@ async def search_node(state: ResearchState, runtime: Runtime) -> dict:
         if not query_text:
             return []
 
-        # Redis 缓存
-        cached = get_cached_tavily_result(query_text)
-        if cached:
-            return _tavily_to_evidence(cached, query_text)
+        # Redis 缓存（独立 try-except——Redis 不可用时跳过缓存直接搜）
+        try:
+            cached = get_cached_tavily_result(query_text)
+            if cached:
+                return _tavily_to_evidence(cached, query_text)
+        except Exception:
+            pass  # Redis 挂了 → 跳过缓存，直接调 Tavily
 
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -101,7 +104,10 @@ async def search_node(state: ResearchState, runtime: Runtime) -> dict:
                 if not raw:
                     continue
 
-                cache_tavily_result(query_text, raw)
+                try:
+                    cache_tavily_result(query_text, raw)
+                except Exception:
+                    pass  # Redis 不可用时跳过缓存
 
                 # ═══ LLM 整理（可选——失败则降级到原始结果） ═══
                 try:

@@ -1,6 +1,12 @@
-# Deep Research Copilot — 企业信息调研助手
+# 深度研报 — AI 企业调研助手
 
 基于 LangGraph 构建的 4 Agent 协作调研系统。Planner → Search → Critic → Synthesizer 多阶段流水线，支持 loop-back 迭代补充调研，SSE 流式输出结构化报告。
+
+## 界面截图
+
+| 首页 | 调研结果 |
+|------|---------|
+| ![首页](docs/images/屏幕截图%202026-07-04%20154427.png) | ![结果](docs/images/屏幕截图%202026-07-04%20154818.png) |
 
 ## 系统架构
 

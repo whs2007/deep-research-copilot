@@ -99,7 +99,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 </div>
 
 <script>
-const API = 'http://localhost:8000';
+const API = 'http://localhost:8001';
 let eventSource = null;
 
 function setTopic(t) { document.getElementById('topicInput').value = t; }
@@ -148,11 +148,7 @@ async function startResearch() {
   const maxIter = $('maxIter').value;
 
   try {
-    const resp = await fetch(`${API}/api/research`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({topic, max_iterations: parseInt(maxIter)})
-    });
+    const resp = await fetch(`${API}/api/research/stream?topic=${encodeURIComponent(topic)}&max_iterations=${maxIter}`);
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
@@ -200,11 +196,11 @@ async function startResearch() {
                 }
               }
               if (msg.node === 'critic') {
-                $('iterationBadge').textContent = msg.iteration || '-';
-                $('qualityBadge').textContent = msg.quality_score ? msg.quality_score.toFixed(2) : '-';
+                $('iterationBadge').textContent = msg.iteration != null ? msg.iteration : '-';
+                $('qualityBadge').textContent = msg.quality_score != null ? Number(msg.quality_score).toFixed(2) : '-';
               }
               if (msg.node === 'search') {
-                $('evidenceBadge').textContent = msg.total_count || '-';
+                $('evidenceBadge').textContent = msg.total_count != null ? msg.total_count : '-';
               }
             }
           } else if (msg.type === 'report') {

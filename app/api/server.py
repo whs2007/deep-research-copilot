@@ -54,10 +54,17 @@ async def health():
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-@app.on_event("startup")
-def startup():
-    init_db()
-    logger.info("MySQL 表初始化完成")
+from contextlib import asynccontextmanager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        init_db()
+        logger.info("MySQL 表初始化完成")
+    except Exception as e:
+        logger.warning(f"MySQL 不可用（开发模式跳过）: {e}")
+    yield
+
+app.router.lifespan_context = lifespan
 
 
 @app.post("/api/research")
@@ -72,15 +79,18 @@ async def research(req: ResearchRequest, db: Session = Depends(get_db)):
 
     session_id = str(uuid.uuid4())
 
-    # 保存会话到 MySQL
-    db_session = UserSession(
-        session_id=session_id, user_id=req.user_id,
-        topic=req.topic, max_iterations=req.max_iterations, status="queued"
-    )
-    db.add(db_session)
-    db.commit()
+    # 保存会话到 MySQL（不可用时跳过）
+    try:
+        db_session = UserSession(
+            session_id=session_id, user_id=req.user_id,
+            topic=req.topic, max_iterations=req.max_iterations, status="queued"
+        )
+        db.add(db_session)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"MySQL 不可用，会话跳过: {e}")
 
-    # 发布到 RabbitMQ（延迟导入，测试环境无 RabbitMQ 时跳过）
+    # 发布到 RabbitMQ（不可用时跳过）
     try:
         from app.queue.broker import publish_task
         publish_task(session_id, req.topic, req.max_iterations)
@@ -90,14 +100,14 @@ async def research(req: ResearchRequest, db: Session = Depends(get_db)):
     return {"status": "queued", "session_id": session_id}
 
 
-@app.get("/api/research/{session_id}/stream")
-async def research_stream(session_id: str):
-    """SSE 流式调研（同步模式，实时返回进度）"""
+@app.get("/api/research/stream")
+async def research_stream_simple(topic: str = "", max_iterations: int = 3):
+    """SSE 流式调研（简化版——不需要 session_id，直接传入 topic 实时返回）"""
     state: ResearchState = {
-        "research_topic": "", "research_plan": [], "search_queries": [],
+        "research_topic": topic, "research_plan": [], "search_queries": [],
         "evidence_pool": [], "verified_facts": [], "rejected_facts": [],
         "missing_angles": [], "fact_quality_score": 0.0, "final_report": "",
-        "iteration_count": 0, "report_ready": False, "max_iterations": 3,
+        "iteration_count": 0, "report_ready": False, "max_iterations": max_iterations,
     }
 
     async def event_stream():
@@ -111,6 +121,12 @@ async def research_stream(session_id: str):
             yield f"data: {json.dumps({'type':'error','message':str(e)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/research/{session_id}/stream")
+async def research_stream(session_id: str, topic: str = ""):
+    """SSE 流式调研（带 session_id 版本）"""
+    return await research_stream_simple(topic=topic or session_id)
 
 
 @app.get("/api/history")
@@ -144,4 +160,4 @@ async def get_report(session_id: str, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.api.server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.api.server:app", host="0.0.0.0", port=8001, reload=True)

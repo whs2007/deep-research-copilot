@@ -16,13 +16,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(128), unique=True, index=True, nullable=False)  # 对外用户标识
+    user_id = Column(String(128), unique=True, index=True, nullable=False)
+    username = Column(String(100), unique=True, index=True)       # 登录用户名
+    password_hash = Column(String(256))                           # bcrypt 哈希
     display_name = Column(String(100), default="未命名用户")
-    total_reports = Column(Integer, default=0)         # 累计报告数
+    is_guest = Column(Integer, default=1)                         # 1=游客 0=注册用户
+    total_reports = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_active_at = Column(DateTime, default=datetime.utcnow)
 
-    # 关联：一个用户有多份报告
     reports = relationship("ResearchReport", back_populates="user")
     sessions = relationship("UserSession", back_populates="user")
 

@@ -17,6 +17,7 @@ from pathlib import Path
 from app.agent.graph import graph
 from app.agent.state import ResearchState
 from app.db.connection import get_db, init_db
+import hashlib, secrets
 from app.db.models import User, ResearchReport, UserSession
 from app.core.logging import logger
 from app.core.context import (
@@ -65,9 +66,60 @@ async def health():
     """健康检查端点（Docker HEALTHCHECK / K8s liveness probe）"""
     return {"status": "healthy", "version": "1.0.0"}
 
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+def _hash_pw(pw: str) -> str:
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+@app.post("/api/register")
+async def register(req: AuthRequest):
+    """用户注册"""
+    try:
+        from app.db.connection import SessionLocal
+        db = SessionLocal()
+        if db.query(User).filter_by(username=req.username).first():
+            db.close(); raise HTTPException(409, "用户名已存在")
+        uid = f"u_{secrets.token_hex(8)}"
+        db.add(User(user_id=uid, username=req.username,
+                     password_hash=_hash_pw(req.password),
+                     display_name=req.username, is_guest=0))
+        db.commit(); db.close()
+        return {"user_id": uid, "username": req.username, "token": uid}
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(500, str(e))
+
+@app.post("/api/login")
+async def login(req: AuthRequest):
+    """用户登录"""
+    try:
+        from app.db.connection import SessionLocal
+        db = SessionLocal()
+        u = db.query(User).filter_by(username=req.username).first()
+        db.close()
+        if not u or u.password_hash != _hash_pw(req.password):
+            raise HTTPException(401, "用户名或密码错误")
+        return {"user_id": u.user_id, "username": u.username, "token": u.user_id,
+                "display_name": u.display_name, "total_reports": u.total_reports}
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(500, str(e))
+
+@app.post("/api/guest")
+async def guest_login():
+    """游客登录 — 生成临时ID"""
+    uid = f"guest_{secrets.token_hex(6)}"
+    try:
+        from app.db.connection import SessionLocal
+        db = SessionLocal()
+        db.add(User(user_id=uid, username=uid, display_name=f"游客_{uid[6:12]}", is_guest=1))
+        db.commit(); db.close()
+    except: pass
+    return {"user_id": uid, "username": uid, "token": uid, "display_name": f"游客_{uid[6:12]}"}
+
 @app.get("/api/user")
 async def get_user(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
-    """获取当前用户信息（自动注册）"""
+    """获取当前用户信息（自动注册游客）"""
     user_id = x_user_id or "anonymous"
     _ensure_user(user_id)
     try:
@@ -75,12 +127,11 @@ async def get_user(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
         db = SessionLocal()
         u = db.query(User).filter_by(user_id=user_id).first()
         result = {"user_id": user_id, "display_name": u.display_name if u else user_id,
-                  "total_reports": u.total_reports if u else 0,
+                  "total_reports": u.total_reports if u else 0, "is_guest": bool(u.is_guest) if u else True,
                   "created_at": str(u.created_at) if u else None}
-        db.close()
-        return result
+        db.close(); return result
     except Exception:
-        return {"user_id": user_id, "display_name": user_id}
+        return {"user_id": user_id, "display_name": user_id, "is_guest": True}
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # 前端静态文件（通过 /ui 访问，避免与 API 路由冲突）

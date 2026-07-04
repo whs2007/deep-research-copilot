@@ -44,7 +44,7 @@ class ReportResponse(BaseModel):
     created_at: str
 
 
-app = FastAPI(title="Deep Research Copilot — Enterprise", version="1.0.0")
+app = FastAPI(title="深度研报 — AI企业调研助手", version="1.0.0")
 
 
 @app.get("/health")

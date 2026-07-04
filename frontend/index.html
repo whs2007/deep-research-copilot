@@ -239,8 +239,8 @@ async function startResearch() {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6);
         if (data === '[DONE]') {
+          stopTimer();
           setStatus('done', '调研完成');
-          addProgress('synthesizer', 'success');
           continue;
         }
         try {
@@ -280,9 +280,11 @@ async function startResearch() {
       }
     }
   } catch(e) {
+    stopTimer();
     setStatus('', '连接失败: ' + e.message);
     addProgress(currentNode, 'error', {error: e.message});
   }
+  stopTimer();
   $('submitBtn').disabled = false;
 }
 

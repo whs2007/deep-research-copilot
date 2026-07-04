@@ -53,13 +53,26 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 .example-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .example-btn{padding:6px 14px;background:#21262d;border:1px solid #30363d;border-radius:20px;color:#8b949e;font-size:12px;cursor:pointer}
 .example-btn:hover{background:#30363d;color:#e1e4e8}
+.history-overlay{position:fixed;top:0;right:0;width:380px;height:100vh;background:#161b22;border-left:1px solid #30363d;z-index:100;transform:translateX(100%);transition:transform .25s;overflow-y:auto}
+.history-overlay.open{transform:translateX(0)}
+.history-head{padding:16px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+.history-head h3{font-size:15px;color:#e1e4e8}
+.history-head button{background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer}
+.history-list{padding:8px}
+.history-item{padding:12px;border-bottom:1px solid #21262d;cursor:pointer;border-radius:6px}
+.history-item:hover{background:#21262d}
+.history-item .hi-topic{font-size:14px;color:#e1e4e8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-item .hi-meta{font-size:11px;color:#484f58;display:flex;gap:12px}
+.history-item .hi-meta b{color:#8b949e}
+.history-empty{padding:40px;text-align:center;color:#484f58;font-size:13px}
 </style>
 </head>
 <body>
 <div class="header">
   <h1>深度研报</h1>
   <span>AI 企业调研助手 · Planner → Search → Critic → Synthesizer</span>
-  <span style="margin-left:auto;font-size:11px;color:#484f58" id="userBadge"></span>
+  <button onclick="toggleHistory()" style="margin-left:auto;padding:6px 14px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e1e4e8;font-size:12px;cursor:pointer">📋 历史记录</button>
+  <span style="font-size:11px;color:#484f58" id="userBadge"></span>
   <span style="font-size:12px" id="connStatus">⚫ 待命</span>
 </div>
 
@@ -101,6 +114,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
   </div>
 </div>
 
+<div class="history-overlay" id="historyPanel">
+  <div class="history-head">
+    <h3>📋 历史记录</h3>
+    <button onclick="toggleHistory()">✕</button>
+  </div>
+  <div class="history-list" id="historyList">
+    <div class="history-empty">加载中…</div>
+  </div>
+</div>
+
 <script>
 const API = 'http://localhost:8001';
 let eventSource = null;
@@ -132,6 +155,60 @@ function stopTimer() {
 function setTopic(t) { document.getElementById('topicInput').value = t; }
 
 function $(id) { return document.getElementById(id); }
+
+// 历史记录面板
+function toggleHistory() {
+  $('historyPanel').classList.toggle('open');
+  if ($('historyPanel').classList.contains('open')) loadHistory();
+}
+
+async function loadHistory() {
+  const list = $('historyList');
+  list.innerHTML = '<div class="history-empty">加载中…</div>';
+  try {
+    const resp = await fetch(`${API}/api/history?limit=30`, { headers: {'X-User-ID': USER_ID} });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const reports = await resp.json();
+    if (!reports.length) {
+      list.innerHTML = '<div class="history-empty">暂无历史记录<br><small>完成一次调研后会自动保存</small></div>';
+      return;
+    }
+    list.innerHTML = reports.map(r => `
+      <div class="history-item" onclick="loadReport('${r.session_id}')">
+        <div class="hi-topic">${escHtml(r.topic)}</div>
+        <div class="hi-meta">
+          <span>⭐ <b>${(r.fact_quality_score||0).toFixed(2)}</b></span>
+          <span>📄 <b>${r.evidence_count||0}条</b></span>
+          <span>🔄 <b>${r.iteration_count||0}轮</b></span>
+          <span>${(r.created_at||'').slice(0,10)}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = `<div class="history-empty">加载失败: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function loadReport(sessionId) {
+  try {
+    $('reportPanel').innerHTML = '<p style="color:#8b949e">加载中…</p>';
+    $('emptyState').style.display = 'none';
+    toggleHistory();
+    const resp = await fetch(`${API}/api/report/${sessionId}`, { headers: {'X-User-ID': USER_ID} });
+    if (!resp.ok) throw new Error('报告不存在');
+    const r = await resp.json();
+    $('reportPanel').innerHTML = renderMarkdown(r.final_report || '报告内容为空');
+    $('iterationBadge').textContent = r.iteration_count || '-';
+    $('evidenceBadge').textContent = r.evidence_count || '-';
+    $('qualityBadge').textContent = (r.fact_quality_score||0).toFixed(2);
+  } catch(e) {
+    $('reportPanel').innerHTML = `<p style="color:#f85149">加载失败: ${escHtml(e.message)}</p>`;
+  }
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function setStatus(dotClass, text) {
   const dot = $('statusDot'), st = $('statusText'), cs = $('connStatus');

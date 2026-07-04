@@ -138,8 +138,26 @@ async def research_stream_simple(
             async for chunk in graph.astream(state, stream_mode="custom"):
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
             final = await graph.ainvoke(state)
-            yield f"data: {json.dumps({'type':'report','data':final.get('final_report','')}, ensure_ascii=False)}\n\n"
+            report_text = final.get('final_report', '')
+            yield f"data: {json.dumps({'type':'report','data':report_text}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
+
+            # 自动保存报告到 MySQL（用户历史记录）
+            sid = str(uuid.uuid4())
+            try:
+                from app.db.connection import SessionLocal
+                db = SessionLocal()
+                db.add(ResearchReport(
+                    session_id=sid, topic=topic, final_report=report_text,
+                    fact_quality_score=final.get('fact_quality_score',0.0),
+                    iteration_count=final.get('iteration_count',0),
+                    evidence_count=len(final.get('evidence_pool',[])),
+                    status='completed', completed_at=datetime.utcnow()))
+                db.add(UserSession(session_id=sid, user_id=user_id, topic=topic,
+                                   max_iterations=max_iterations, status='completed'))
+                db.commit(); db.close()
+            except Exception as e:
+                logger.warning(f"MySQL 保存失败: {e}")
         except Exception as e:
             yield f"data: {json.dumps({'type':'error','message':str(e)}, ensure_ascii=False)}\n\n"
 

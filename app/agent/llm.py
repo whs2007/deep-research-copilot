@@ -11,5 +11,8 @@ load_dotenv(find_dotenv())
 model = init_chat_model(
     model=os.getenv("LLM_MODEL", "gpt-4o"),
     model_provider="openai",
+    base_url=os.getenv("OPENAI_BASE_URL"),
+    api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0,
+    request_timeout=60,  # LLM 调用超时 60 秒（防 Worker 卡死）
 )

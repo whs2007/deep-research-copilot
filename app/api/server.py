@@ -21,9 +21,18 @@ from app.core.logging import logger
 
 
 class ResearchRequest(BaseModel):
-    topic: str
+    topic: str = ""  # 必填
     max_iterations: int = 3
     user_id: str = "anonymous"
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        super().__pydantic_init_subclass__(**kwargs)
+
+    # request size limit: topic 最多 2000 字符
+    @property
+    def topic_limited(self) -> str:
+        return self.topic[:2000] if self.topic else ""
 
 
 class ReportResponse(BaseModel):
@@ -37,7 +46,13 @@ class ReportResponse(BaseModel):
     created_at: str
 
 
-app = FastAPI(title="Deep Research Copilot — Enterprise")
+app = FastAPI(title="Deep Research Copilot — Enterprise", version="1.0.0")
+
+
+@app.get("/health")
+async def health():
+    """健康检查端点（Docker HEALTHCHECK / K8s liveness probe）"""
+    return {"status": "healthy", "version": "1.0.0"}
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

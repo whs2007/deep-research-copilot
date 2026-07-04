@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Research Copilot</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh}
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:18px;font-weight:600;background:linear-gradient(135deg,#58a6ff,#3fb950);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header span{font-size:12px;color:#8b949e}
+.container{max-width:900px;margin:0 auto;padding:24px}
+.input-area{display:flex;gap:12px;margin-bottom:24px}
+.input-area input{flex:1;padding:12px 16px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#e1e4e8;font-size:15px;outline:none}
+.input-area input:focus{border-color:#58a6ff}
+.input-area button{padding:12px 24px;background:#238636;border:none;border-radius:8px;color:#fff;font-size:15px;cursor:pointer;white-space:nowrap}
+.input-area button:hover{background:#2ea043}
+.input-area button:disabled{background:#21262d;color:#484f58;cursor:not-allowed}
+.input-area select{padding:12px 8px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#e1e4e8;font-size:14px}
+.status-bar{display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap}
+.status-item{display:flex;align-items:center;gap:8px;font-size:13px;color:#8b949e}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#484f58}
+.status-dot.running{background:#d29922;animation:pulse 1s infinite}
+.status-dot.done{background:#3fb950}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.progress-panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:20px;max-height:300px;overflow-y:auto}
+.progress-panel h3{font-size:13px;color:#8b949e;margin-bottom:12px}
+.progress-item{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;border-bottom:1px solid #21262d}
+.progress-item:last-child{border-bottom:none}
+.progress-node{font-weight:600;min-width:100px;color:#58a6ff}
+.progress-status{color:#8b949e}
+.progress-status.success{color:#3fb950}
+.progress-status.error{color:#f85149}
+.report-panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;line-height:1.7}
+.report-panel h1{font-size:22px;color:#58a6ff;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #30363d}
+.report-panel h2{font-size:17px;color:#e1e4e8;margin:20px 0 10px}
+.report-panel h3{font-size:15px;color:#8b949e;margin:16px 0 8px}
+.report-panel p{margin:8px 0;font-size:14px}
+.report-panel ul,.report-panel ol{margin:8px 0;padding-left:24px}
+.report-panel li{margin:4px 0;font-size:14px}
+.report-panel code{background:#21262d;padding:2px 6px;border-radius:4px;font-size:13px}
+.report-panel pre{background:#0d1117;padding:16px;border-radius:6px;overflow-x:auto;margin:12px 0;font-size:13px}
+.report-panel table{width:100%;border-collapse:collapse;margin:12px 0}
+.report-panel th,.report-panel td{border:1px solid #30363d;padding:8px 12px;text-align:left;font-size:13px}
+.report-panel th{background:#21262d}
+.report-panel a{color:#58a6ff}
+.report-panel blockquote{border-left:3px solid #58a6ff;padding-left:12px;color:#8b949e;margin:12px 0}
+.empty-state{text-align:center;padding:60px 20px;color:#484f58}
+.empty-state svg{margin-bottom:16px;opacity:.3}
+.empty-state p{font-size:14px;margin:4px 0}
+.example-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.example-btn{padding:6px 14px;background:#21262d;border:1px solid #30363d;border-radius:20px;color:#8b949e;font-size:12px;cursor:pointer}
+.example-btn:hover{background:#30363d;color:#e1e4e8}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Deep Research Copilot</h1>
+  <span>企业信息调研助手</span>
+  <span style="margin-left:auto;font-size:12px" id="connStatus">⚫ 待命</span>
+</div>
+
+<div class="container">
+  <div class="input-area">
+    <input id="topicInput" placeholder="输入调研主题，例如：2026年中国新能源汽车市场竞争格局" />
+    <select id="maxIter">
+      <option value="1">1轮</option><option value="2">2轮</option><option value="3" selected>3轮</option><option value="4">4轮</option><option value="5">5轮</option>
+    </select>
+    <button id="submitBtn" onclick="startResearch()">🔍 开始调研</button>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item"><span class="status-dot" id="statusDot"></span><span id="statusText">等待输入</span></div>
+    <div class="status-item">📊 轮次: <b id="iterationBadge">-</b></div>
+    <div class="status-item">📄 证据: <b id="evidenceBadge">-</b></div>
+    <div class="status-item">⭐ 质量: <b id="qualityBadge">-</b></div>
+  </div>
+
+  <div class="progress-panel" id="progressPanel">
+    <h3>📡 实时执行轨迹</h3>
+    <div id="progressList"></div>
+  </div>
+
+  <div id="reportPanel"></div>
+
+  <div id="emptyState" class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+    <p><b>输入调研主题，开始自动化深度调研</b></p>
+    <p style="font-size:12px">Planner → Search → Critic → Synthesizer 四阶段流水线</p>
+    <div class="example-bar">
+      <button class="example-btn" onclick="setTopic('2026年中国新能源汽车市场竞争格局')">新能源汽车</button>
+      <button class="example-btn" onclick="setTopic('AI芯片市场2026 NVIDIA AMD Intel')">AI芯片</button>
+      <button class="example-btn" onclick="setTopic('光伏产业技术路线TOPCon vs HJT')">光伏产业</button>
+      <button class="example-btn" onclick="setTopic('全球半导体供应链重构趋势')">半导体</button>
+      <button class="example-btn" onclick="setTopic('氢能产业链投资机会分析2026')">氢能</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let eventSource = null;
+
+function setTopic(t) { document.getElementById('topicInput').value = t; }
+
+function $(id) { return document.getElementById(id); }
+
+function setStatus(dotClass, text) {
+  const dot = $('statusDot'), st = $('statusText'), cs = $('connStatus');
+  dot.className = 'status-dot ' + dotClass;
+  st.textContent = text;
+  if (dotClass === 'running') { cs.innerHTML = '🟡 研搜中'; }
+  else if (dotClass === 'done') { cs.innerHTML = '🟢 完成'; }
+  else { cs.innerHTML = '⚫ 待命'; }
+}
+
+function addProgress(node, status, extra) {
+  const div = $('progressList');
+  const cls = status === 'success' ? 'success' : status === 'error' ? 'error' : '';
+  const icons = {planner:'🧠', search:'🔍', critic:'🔬', synthesizer:'📝'};
+  const names = {planner:'Planner', search:'Search', critic:'Critic', synthesizer:'Synthesizer'};
+  const info = extra ? ` (${Object.values(extra).join(', ')})` : '';
+  div.innerHTML += `<div class="progress-item">
+    <span class="progress-node">${icons[node]||'📌'} ${names[node]||node}</span>
+    <span class="progress-status ${cls}">${status==='running'?'执行中...':status==='success'?'✅完成':'❌失败'}</span>
+    <span style="color:#484f58;font-size:11px">${info}</span>
+  </div>`;
+  $('progressPanel').scrollTop = $('progressPanel').scrollHeight;
+}
+
+async function startResearch() {
+  const topic = $('topicInput').value.trim();
+  if (!topic) return alert('请输入调研主题');
+
+  // 重置
+  if (eventSource) eventSource.close();
+  $('reportPanel').innerHTML = '';
+  $('progressList').innerHTML = '';
+  $('emptyState').style.display = 'none';
+  $('submitBtn').disabled = true;
+  $('iterationBadge').textContent = '-';
+  $('evidenceBadge').textContent = '-';
+  $('qualityBadge').textContent = '-';
+  setStatus('running', '正在调研...');
+  addProgress('planner', 'running');
+
+  const maxIter = $('maxIter').value;
+
+  try {
+    const resp = await fetch(`${API}/api/research`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({topic, max_iterations: parseInt(maxIter)})
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentNode = 'planner';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+
+      // 解析 SSE 事件
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // 残留放回 buffer
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') {
+          setStatus('done', '调研完成');
+          addProgress('synthesizer', 'success');
+          continue;
+        }
+        try {
+          const msg = JSON.parse(data);
+          if (msg.type === 'progress') {
+            if (msg.node && msg.node !== currentNode) {
+              // 上一个节点完成
+              // 不在这里标记，看 status
+              currentNode = msg.node;
+            }
+            if (msg.status === 'running') {
+              addProgress(msg.node, 'running');
+            } else if (msg.status === 'success' || msg.status === 'complete') {
+              // 更新最新一条为成功
+              const items = $('progressList').children;
+              if (items.length > 0) {
+                const last = items[items.length-1];
+                const statusSpan = last.querySelector('.progress-status');
+                if (statusSpan) {
+                  statusSpan.textContent = '✅完成';
+                  statusSpan.className = 'progress-status success';
+                }
+              }
+              if (msg.node === 'critic') {
+                $('iterationBadge').textContent = msg.iteration || '-';
+                $('qualityBadge').textContent = msg.quality_score ? msg.quality_score.toFixed(2) : '-';
+              }
+              if (msg.node === 'search') {
+                $('evidenceBadge').textContent = msg.total_count || '-';
+              }
+            }
+          } else if (msg.type === 'report') {
+            $('reportPanel').innerHTML = renderMarkdown(msg.data || '');
+          } else if (msg.type === 'error') {
+            setStatus('', '错误: ' + (msg.message || '未知'));
+            addProgress(currentNode, 'error');
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    setStatus('', '连接失败: ' + e.message);
+    addProgress(currentNode, 'error', {error: e.message});
+  }
+  $('submitBtn').disabled = false;
+}
+
+// 简易 Markdown 渲染器
+function renderMarkdown(md) {
+  if (!md) return '<p style="color:#484f58">报告生成失败</p>';
+  let html = md
+    // 标题
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // 粗体/斜体
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.+?)\*/g, '<i>$1</i>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 链接
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    // 无序列表
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    // 分隔线
+    .replace(/^---$/gm, '<hr>')
+    // 段落（连续非空行）
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hul/])/gm, '<p>')
+    .replace(/(?<![>])$/gm, '</p>');
+
+  // 清理多余标签
+  html = html.replace(/<p>\s*<p>/g, '<p>').replace(/<\/p>\s*<\/p>/g, '</p>');
+  html = html.replace(/<p><(h[123]|ul|hr)/g, '<$1').replace(/(<\/h[123]>|<\/ul>|<\/hr>)<\/p>/g, '$1');
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  return `<div class="report-panel">${html}</div>`;
+}
+</script>
+</body>
+</html>

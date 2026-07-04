@@ -90,19 +90,24 @@ SSE 事件类型：
 
 ### 测试
 
+| 模块 | 用例数 | 覆盖范围 |
+|------|--------|---------|
+| `test_graph.py` | 7 | 节点存在 / 边正确 / 条件边 3 场景 / 字段缺失容错 |
+| `test_critic.py` | 5 | forced_ready 逻辑 / 递增 / LLM 覆盖 / 事件格式 |
+| `test_planner.py` | 4 | 首轮不跳过 / 空转防护 / iteration 不变 / stream_writer |
+| `test_search.py` | 4 | 空查询 / 结构 / 已有证据保留 / 进度推送 |
+| `test_synthesizer.py` | 5 | Prompt 8 占位符 / 五段式结构 / 禁止编造 / 返回格式 / 事件 |
+| `test_api.py` | 4 | SSE 响应 / 默认参数 / 422 校验 / content-type |
+
 ```bash
 # 运行所有测试
 pytest tests/ -v
 
-# 按模块运行
-pytest tests/test_planner.py -v
-pytest tests/test_search.py -v
-pytest tests/test_critic.py -v
-pytest tests/test_graph.py -v
-pytest tests/test_api.py -v
+# 29 passed in ~7s
+```
 
-# 覆盖率报告
-pytest tests/ --cov=app --cov-report=term-missing
+```
+============================= 29 passed in 7.52s =============================
 ```
 
 ## 项目结构

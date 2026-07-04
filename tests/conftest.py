@@ -1,5 +1,5 @@
 """
-测试 Fixtures — Mock LLM / Mock Tavily / 标准 State
+测试 Fixtures — Mock LLM Chain / Mock Tavily / 标准 State
 """
 import os
 import pytest
@@ -30,71 +30,49 @@ def base_state():
 
 
 @pytest.fixture
-def mock_llm_planner():
-    """Mock Planner 的 LLM 返回"""
-    mock = AsyncMock()
-    mock.ainvoke.return_value = {
-        "research_plan": ["子问题1", "子问题2", "子问题3"],
-        "search_queries": [
-            {"query": "test query 1", "source": "news", "priority": "high"},
-            {"query": "test query 2", "source": "report", "priority": "medium"},
-        ],
-    }
-    return mock
-
-
-@pytest.fixture
-def mock_llm_critic_ready():
-    """Mock Critic 的 LLM 返回 — 证据充分"""
-    mock = AsyncMock()
-    mock.ainvoke.return_value = {
-        "verified_facts": [
-            {"fact": "事实1", "source": "url1", "relevance": "子问题1", "confidence": "high"}
-        ],
-        "rejected_facts": [],
-        "missing_angles": [],
-        "fact_quality_score": 0.85,
-        "report_ready": True,
-    }
-    return mock
-
-
-@pytest.fixture
-def mock_llm_critic_not_ready():
-    """Mock Critic 的 LLM 返回 — 证据不足"""
-    mock = AsyncMock()
-    mock.ainvoke.return_value = {
-        "verified_facts": [],
-        "rejected_facts": [
-            {"fact": "低质量", "source": "url_x", "reason": "来源不可靠"}
-        ],
-        "missing_angles": ["缺失角度1", "缺失角度2"],
-        "fact_quality_score": 0.3,
-        "report_ready": False,
-    }
-    return mock
-
-
-@pytest.fixture
-def mock_llm_synthesizer():
-    """Mock Synthesizer 的 LLM 返回"""
-    mock = AsyncMock()
-    mock.ainvoke.return_value = "# 测试报告\n\n内容"
-    return mock
-
-
-@pytest.fixture
-def mock_tavily():
-    """Mock Tavily 搜索返回"""
-    return [
-        {"title": "Test Result", "url": "https://example.com/1",
-         "content": "test content", "score": 0.9}
-    ]
-
-
-@pytest.fixture
 def mock_runtime():
     """Mock LangGraph Runtime（stream_writer）"""
     mock = MagicMock()
     mock.stream_writer = MagicMock()
     return mock
+
+
+# ── 预设的 chain.ainvoke 返回值 ──
+
+PLANNER_RESULT = {
+    "research_plan": ["子问题1", "子问题2", "子问题3"],
+    "search_queries": [
+        {"query": "test query 1", "source": "news", "priority": "high"},
+        {"query": "test query 2", "source": "report", "priority": "medium"},
+    ],
+}
+
+CRITIC_READY = {
+    "verified_facts": [
+        {"fact": "事实1", "source": "url1", "relevance": "子问题1", "confidence": "high"}
+    ],
+    "rejected_facts": [],
+    "missing_angles": [],
+    "fact_quality_score": 0.85,
+    "report_ready": True,
+}
+
+CRITIC_NOT_READY = {
+    "verified_facts": [],
+    "rejected_facts": [
+        {"fact": "低质量", "source": "url_x", "reason": "来源不可靠"}
+    ],
+    "missing_angles": ["缺失角度1", "缺失角度2"],
+    "fact_quality_score": 0.3,
+    "report_ready": False,
+}
+
+SYNTHESIZER_RESULT = "# 测试报告\n\n## 一、调研背景\n内容"
+
+SEARCH_LLM_RESULT = [
+    {"fact": "搜索事实", "source": "https://example.com", "relevance": "子问题1", "confidence": "high"}
+]
+
+TAVILY_RESULT = [
+    {"title": "Test", "url": "https://example.com/1", "content": "test content", "score": 0.9}
+]

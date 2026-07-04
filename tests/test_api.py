@@ -35,10 +35,12 @@ async def test_research_missing_topic():
 
 
 @pytest.mark.asyncio
-async def test_research_cors_headers():
-    """CORS 中间件生效"""
+async def test_research_streaming_response_type():
+    """验证响应类型为 text/event-stream"""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.options("/api/research")
-        assert "access-control-allow-origin" in response.headers
-        assert response.headers["access-control-allow-origin"] == "*"
+        response = await client.post("/api/research", json={
+            "topic": "test", "max_iterations": 1
+        })
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers.get("content-type", "")

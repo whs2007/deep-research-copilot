@@ -58,7 +58,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 <div class="header">
   <h1>深度研报</h1>
   <span>AI 企业调研助手 · Planner → Search → Critic → Synthesizer</span>
-  <span style="margin-left:auto;font-size:12px" id="connStatus">⚫ 待命</span>
+  <span style="margin-left:auto;font-size:11px;color:#484f58" id="userBadge"></span>
+  <span style="font-size:12px" id="connStatus">⚫ 待命</span>
 </div>
 
 <div class="container">
@@ -101,6 +102,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 <script>
 const API = 'http://localhost:8001';
 let eventSource = null;
+
+// 用户标识（首次访问自动生成，localStorage 持久化）
+const USER_ID = localStorage.getItem('deepresearch_uid') || ('user_' + Date.now());
+localStorage.setItem('deepresearch_uid', USER_ID);
+document.getElementById('userBadge').textContent = '👤 ' + USER_ID.slice(0, 13);
 
 function setTopic(t) { document.getElementById('topicInput').value = t; }
 
@@ -148,7 +154,9 @@ async function startResearch() {
   const maxIter = $('maxIter').value;
 
   try {
-    const resp = await fetch(`${API}/api/research/stream?topic=${encodeURIComponent(topic)}&max_iterations=${maxIter}`);
+    const resp = await fetch(`${API}/api/research/stream?topic=${encodeURIComponent(topic)}&max_iterations=${maxIter}`, {
+      headers: {'X-User-ID': USER_ID}
+    });
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 

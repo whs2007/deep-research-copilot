@@ -1,36 +1,31 @@
 """
 FastAPI 服务 — 生产级：MySQL 持久化 + Redis 缓存 + RabbitMQ 任务队列 + SSE 流式
+用户系统：ContextVar 协程级会话隔离 + X-User-ID 请求头认证
 """
 import uuid
 import json
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.agent.graph import graph
 from app.agent.state import ResearchState
 from app.db.connection import get_db, init_db
 from app.db.models import ResearchReport, UserSession
 from app.core.logging import logger
+from app.core.context import (
+    set_user_context, reset_context, get_current_user, set_session_context
+)
 
 
 class ResearchRequest(BaseModel):
     topic: str = ""  # 必填
     max_iterations: int = 3
-    user_id: str = "anonymous"
-
-    @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs):
-        super().__pydantic_init_subclass__(**kwargs)
-
-    # request size limit: topic 最多 2000 字符
-    @property
-    def topic_limited(self) -> str:
-        return self.topic[:2000] if self.topic else ""
 
 
 class ReportResponse(BaseModel):
@@ -68,41 +63,59 @@ app.router.lifespan_context = lifespan
 
 
 @app.post("/api/research")
-async def research(req: ResearchRequest, db: Session = Depends(get_db)):
+async def research(
+    req: ResearchRequest,
+    db: Session = Depends(get_db),
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+):
     """提交调研任务 → 异步队列 → 立即返回 session_id"""
-    from app.cache.redis_client import check_rate_limit
-    try:
-        if not check_rate_limit(req.user_id):
-            raise HTTPException(429, "请求过于频繁，请稍后重试")
-    except Exception:
-        pass  # Redis 不可用时放行，不阻塞服务
-
+    # ═══ ContextVar 用户上下文 ═══
+    user_id = x_user_id or "anonymous"
+    user_token = set_user_context(user_id)
     session_id = str(uuid.uuid4())
+    session_token = set_session_context(session_id)
 
-    # 保存会话到 MySQL（不可用时跳过）
     try:
-        db_session = UserSession(
-            session_id=session_id, user_id=req.user_id,
-            topic=req.topic, max_iterations=req.max_iterations, status="queued"
-        )
-        db.add(db_session)
-        db.commit()
-    except Exception as e:
-        logger.warning(f"MySQL 不可用，会话跳过: {e}")
+        # 速率限制
+        try:
+            from app.cache.redis_client import check_rate_limit
+            if not check_rate_limit(user_id):
+                raise HTTPException(429, "请求过于频繁，请稍后重试")
+        except Exception:
+            pass
 
-    # 发布到 RabbitMQ（不可用时跳过）
-    try:
-        from app.queue.broker import publish_task
-        publish_task(session_id, req.topic, req.max_iterations)
-    except Exception as e:
-        logger.warning(f"RabbitMQ 不可用，队列跳过: {e}")
+        # 保存会话到 MySQL
+        try:
+            db_session = UserSession(
+                session_id=session_id, user_id=user_id,
+                topic=req.topic, max_iterations=req.max_iterations, status="queued"
+            )
+            db.add(db_session)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"MySQL 不可用，会话跳过: {e}")
 
-    return {"status": "queued", "session_id": session_id}
+        # 发布到 RabbitMQ
+        try:
+            from app.queue.broker import publish_task
+            publish_task(session_id, req.topic, req.max_iterations)
+        except Exception as e:
+            logger.warning(f"RabbitMQ 不可用，队列跳过: {e}")
+
+        return {"status": "queued", "session_id": session_id}
+    finally:
+        reset_context(user_token, session_token)
 
 
 @app.get("/api/research/stream")
-async def research_stream_simple(topic: str = "", max_iterations: int = 3):
-    """SSE 流式调研（简化版——不需要 session_id，直接传入 topic 实时返回）"""
+async def research_stream_simple(
+    topic: str = "",
+    max_iterations: int = 3,
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+):
+    """SSE 流式调研（ContextVar 自动注入用户上下文）"""
+    user_id = x_user_id or "anonymous"
+    set_user_context(user_id)
     state: ResearchState = {
         "research_topic": topic, "research_plan": [], "search_queries": [],
         "evidence_pool": [], "verified_facts": [], "rejected_facts": [],
@@ -130,8 +143,13 @@ async def research_stream(session_id: str, topic: str = ""):
 
 
 @app.get("/api/history")
-async def list_reports(user_id: str = "anonymous", limit: int = 20, db: Session = Depends(get_db)):
-    """查询历史调研报告"""
+async def list_reports(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+):
+    """查询当前用户的历史调研报告（ContextVar 自动获取用户身份）"""
+    user_id = x_user_id or get_current_user()
     reports = db.query(ResearchReport).filter(
         ResearchReport.session_id.in_(
             db.query(UserSession.session_id).filter(UserSession.user_id == user_id)

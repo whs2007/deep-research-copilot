@@ -18,4 +18,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # 优雅关闭：SIGTERM 触发 uvicorn 的 graceful shutdown
 STOPSIGNAL SIGTERM
-CMD ["uvicorn", "app.api.server:app", "--host", "0.0.0.0", "--port", "8000", "--graceful-timeout", "10"]
+CMD ["uvicorn", "app.api.server:app", "--host", "0.0.0.0", "--port", "8000"]

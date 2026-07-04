@@ -32,6 +32,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 .progress-status{color:#8b949e}
 .progress-status.success{color:#3fb950}
 .progress-status.error{color:#f85149}
+.progress-detail{display:block;color:#484f58;font-size:11px;margin-top:3px;margin-left:24px;line-height:1.5}
 .report-panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;line-height:1.7}
 .report-panel h1{font-size:22px;color:#58a6ff;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #30363d}
 .report-panel h2{font-size:17px;color:#e1e4e8;margin:20px 0 10px}
@@ -73,6 +74,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 
   <div class="status-bar">
     <div class="status-item"><span class="status-dot" id="statusDot"></span><span id="statusText">等待输入</span></div>
+    <div class="status-item">⏱️ 已用时: <b id="timerBadge">00:00</b></div>
     <div class="status-item">📊 轮次: <b id="iterationBadge">-</b></div>
     <div class="status-item">📄 证据: <b id="evidenceBadge">-</b></div>
     <div class="status-item">⭐ 质量: <b id="qualityBadge">-</b></div>
@@ -108,6 +110,25 @@ const USER_ID = localStorage.getItem('deepresearch_uid') || ('user_' + Date.now(
 localStorage.setItem('deepresearch_uid', USER_ID);
 document.getElementById('userBadge').textContent = '👤 ' + USER_ID.slice(0, 13);
 
+let timerStart = 0;
+let timerInterval = null;
+
+function startTimer() {
+  timerStart = Date.now();
+  $('timerBadge').textContent = '00:00';
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    $('timerBadge').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
 function setTopic(t) { document.getElementById('topicInput').value = t; }
 
 function $(id) { return document.getElementById(id); }
@@ -124,13 +145,52 @@ function setStatus(dotClass, text) {
 function addProgress(node, status, extra) {
   const div = $('progressList');
   const cls = status === 'success' ? 'success' : status === 'error' ? 'error' : '';
-  const icons = {planner:'🧠', search:'🔍', critic:'🔬', synthesizer:'📝'};
-  const names = {planner:'Planner', search:'Search', critic:'Critic', synthesizer:'Synthesizer'};
-  const info = extra ? ` (${Object.values(extra).join(', ')})` : '';
+
+  // 中文节点名 + 中文状态描述
+  const nodeMap = {
+    planner:  {icon: '🧠', name: '任务规划',  running: '拆解问题中…',  done: '规划完成'},
+    search:   {icon: '🔍', name: '信息检索',  running: '并发搜索中…',  done: '检索完成'},
+    critic:   {icon: '🔬', name: '质量审核',  running: '评估证据中…',  done: '审核完成'},
+    synthesizer: {icon:'📝', name:'报告生成', running: '撰写报告中…',  done: '报告生成'},
+  };
+  const info = nodeMap[node] || {icon:'📌', name:node, running:'执行中…', done:'完成'};
+
+  // 详细信息
+  let detail = '';
+  if (extra && status === 'success') {
+    const parts = [];
+    if (extra.plan_count) parts.push(`拆解 ${extra.plan_count} 个子问题`);
+    if (extra.query_count) parts.push(`生成 ${extra.query_count} 条搜索指令`);
+    if (extra.new_count != null && extra.total_count != null) parts.push(`本轮新增 ${extra.new_count} 条，证据池共 ${extra.total_count} 条`);
+    if (extra.quality_score != null) parts.push(`证据质量评分 ${Number(extra.quality_score).toFixed(2)}`);
+    if (extra.report_ready != null) parts.push(extra.report_ready ? '✅ 证据充分，进入报告生成' : '🔄 证据不足，需补充搜索');
+    if (extra.iteration != null) parts.push(`当前第 ${extra.iteration} 轮`);
+    detail = parts.join(' · ');
+  }
+
+  // 合并同一个节点的 running → complete
+  const items = div.children;
+  if (status === 'success' && items.length > 0) {
+    const lastItem = items[items.length-1];
+    const lastNodeName = lastItem.querySelector('.progress-node');
+    if (lastNodeName && lastNodeName.textContent.includes(info.name)) {
+      // 更新最后一条为完成状态 + 详细信息
+      const statusSpan = lastItem.querySelector('.progress-status');
+      if (statusSpan) {
+        statusSpan.textContent = '✅ ' + info.done;
+        statusSpan.className = 'progress-status success';
+      }
+      const detailSpan = lastItem.querySelector('.progress-detail');
+      if (detailSpan && detail) detailSpan.textContent = detail;
+      else if (detail) lastItem.innerHTML += `<span class="progress-detail">${detail}</span>`;
+      $('progressPanel').scrollTop = $('progressPanel').scrollHeight;
+      return;
+    }
+  }
+
   div.innerHTML += `<div class="progress-item">
-    <span class="progress-node">${icons[node]||'📌'} ${names[node]||node}</span>
-    <span class="progress-status ${cls}">${status==='running'?'执行中...':status==='success'?'✅完成':'❌失败'}</span>
-    <span style="color:#484f58;font-size:11px">${info}</span>
+    <span class="progress-node">${info.icon} ${info.name}</span>
+    <span class="progress-status ${cls}">${status==='running' ? '⏳ '+info.running : '✅ '+info.done}</span>
   </div>`;
   $('progressPanel').scrollTop = $('progressPanel').scrollHeight;
 }
@@ -148,6 +208,7 @@ async function startResearch() {
   $('iterationBadge').textContent = '-';
   $('evidenceBadge').textContent = '-';
   $('qualityBadge').textContent = '-';
+  startTimer();
   setStatus('running', '正在调研...');
   addProgress('planner', 'running');
 
@@ -185,24 +246,19 @@ async function startResearch() {
         try {
           const msg = JSON.parse(data);
           if (msg.type === 'progress') {
-            if (msg.node && msg.node !== currentNode) {
-              // 上一个节点完成
-              // 不在这里标记，看 status
-              currentNode = msg.node;
-            }
             if (msg.status === 'running') {
               addProgress(msg.node, 'running');
             } else if (msg.status === 'success' || msg.status === 'complete') {
-              // 更新最新一条为成功
-              const items = $('progressList').children;
-              if (items.length > 0) {
-                const last = items[items.length-1];
-                const statusSpan = last.querySelector('.progress-status');
-                if (statusSpan) {
-                  statusSpan.textContent = '✅完成';
-                  statusSpan.className = 'progress-status success';
-                }
-              }
+              // Pass all extra data from the progress event
+              addProgress(msg.node, 'success', {
+                plan_count: msg.plan_count,
+                query_count: msg.query_count,
+                total_count: msg.total_count,
+                new_count: msg.new_count,
+                quality_score: msg.quality_score,
+                report_ready: msg.report_ready,
+                iteration: msg.iteration
+              });
               if (msg.node === 'critic') {
                 $('iterationBadge').textContent = msg.iteration != null ? msg.iteration : '-';
                 $('qualityBadge').textContent = msg.quality_score != null ? Number(msg.quality_score).toFixed(2) : '-';
@@ -212,8 +268,11 @@ async function startResearch() {
               }
             }
           } else if (msg.type === 'report') {
+            stopTimer();
+            setStatus('done', '调研完成');
             $('reportPanel').innerHTML = renderMarkdown(msg.data || '');
           } else if (msg.type === 'error') {
+            stopTimer();
             setStatus('', '错误: ' + (msg.message || '未知'));
             addProgress(currentNode, 'error');
           }

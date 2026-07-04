@@ -8,10 +8,11 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
+from pathlib import Path
 
 from app.agent.graph import graph
 from app.agent.state import ResearchState
@@ -47,6 +48,15 @@ async def health():
     """健康检查端点（Docker HEALTHCHECK / K8s liveness probe）"""
     return {"status": "healthy", "version": "1.0.0"}
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# 前端静态文件服务
+frontend_path = Path(__file__).parent.parent.parent / "frontend"
+if frontend_path.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    logger.info(f"前端静态文件已挂载: {frontend_path}")
+else:
+    logger.warning(f"前端目录不存在: {frontend_path}")
 
 
 from contextlib import asynccontextmanager

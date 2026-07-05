@@ -6,13 +6,13 @@
 
 ## 截图
 
-### 测试
-
-![pytest](docs/images/test-pytest.png)
+| 最终报告 | 测试 |
+|---------|------|
+| ![报告](docs/images/report-full.png) | ![pytest](docs/images/test-pytest.png) |
 
 ### 界面截图获取指南
 
-界面截图需启动项目后手动截取。以下是操作步骤和每张截图应捕捉的内容：
+以下截图需启动项目后手动截取，保存到 `docs/images/`：
 
 **前置准备**（任选一种方式启动）：
 
@@ -20,8 +20,6 @@
 - **本地开发**：`python -m app.api.server` → 访问 `http://localhost:8001/ui`
 
 > 本地开发模式需自行启动 MySQL / Redis / RabbitMQ 才能使用完整功能（不启动会降级，但 SSE 流式调研可正常使用）。
-
-启动后，按下表操作并截图，保存到 `docs/images/`：
 
 | 截图文件名 | 操作方式 | 应捕捉的画面 |
 |-----------|---------|-------------|
@@ -31,7 +29,6 @@
 | `progress-searching.png` | 点击「开始调研」，等 Search 节点执行 | 状态栏圆点变为黄色脉动，进度面板出现 `🔍 信息检索 ⏳ 并发搜索中…` |
 | `progress-critic.png` | 等待 Critic 节点执行 | 进度面板出现 `🔬 质量审核` 行，状态栏显示轮次/证据数/质量分 |
 | `progress-synthesizer.png` | 等待 Synthesizer 节点执行 | 进度面板出现 `📝 报告生成 ⏳ 撰写报告中…` |
-| `report-full.png` | 调研完成，报告完整渲染 | 报告面板：Markdown 渲染的标题/段落/列表/链接，蓝白配色 |
 | `report-result.png` | 滚动到报告底部或截取摘要区域 | 报告结尾部分或左侧历史栏出现新记录（含质量分/证据数/轮次） |
 
 **截图技巧**：

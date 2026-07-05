@@ -290,7 +290,8 @@ function timerDisplay(t) {
 
 function setTopic(i, topic) {
   tabs[i].topic = topic;
-  renderTabContent();
+  const el = document.getElementById('topicInput-'+i);
+  if(el) el.value = topic;
 }
 
 function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

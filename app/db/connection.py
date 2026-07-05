@@ -9,10 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.db.models import Base
 
-DATABASE_URL = os.getenv(
-    "MYSQL_URL",
-    "mysql+pymysql://root:root@localhost:3309/research_copilot"
-)
+# Direct connection string for Docker MySQL
+DATABASE_URL = "mysql+pymysql://root:root@localhost:3309/research_copilot"
 
 engine = create_engine(DATABASE_URL, pool_size=10, pool_pre_ping=True, pool_recycle=3600)
 SessionLocal = sessionmaker(bind=engine)

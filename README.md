@@ -10,30 +10,6 @@
 |--------|---------|---------|------|
 | ![首页空](docs/images/homepage-empty.png) | ![输入](docs/images/homepage-input.png) | ![报告](docs/images/report-full.png) | ![pytest](docs/images/test-pytest.png) |
 
-### 界面截图获取指南
-
-以下截图需启动项目后手动截取，保存到 `docs/images/`：
-
-**前置准备**（任选一种方式启动）：
-
-- **Docker Compose**：`docker-compose up -d` → 访问 `http://localhost:8000/ui`
-- **本地开发**：`python -m app.api.server` → 访问 `http://localhost:8001/ui`
-
-> 本地开发模式需自行启动 MySQL / Redis / RabbitMQ 才能使用完整功能（不启动会降级，但 SSE 流式调研可正常使用）。
-
-| 截图文件名 | 操作方式 | 应捕捉的画面 |
-|-----------|---------|-------------|
-| `homepage-examples.png` | 点击某个示例按钮（如「新能源汽车」） | 输入框自动填入示例话题文本，按钮仍可点击 |
-| `progress-searching.png` | 点击「开始调研」，等 Search 节点执行 | 状态栏圆点变为黄色脉动，进度面板出现 `🔍 信息检索 ⏳ 并发搜索中…` |
-| `progress-critic.png` | 等待 Critic 节点执行 | 进度面板出现 `🔬 质量审核` 行，状态栏显示轮次/证据数/质量分 |
-| `progress-synthesizer.png` | 等待 Synthesizer 节点执行 | 进度面板出现 `📝 报告生成 ⏳ 撰写报告中…` |
-| `report-result.png` | 滚动到报告底部或截取摘要区域 | 报告结尾部分或左侧历史栏出现新记录（含质量分/证据数/轮次） |
-
-**截图技巧**：
-- 浏览器全屏后用系统截图工具（Win+Shift+S / macOS Cmd+Shift+4）
-- 进度类截图需手快——节点执行可能只有几秒，可多次调研抓拍
-- 建议用「光伏产业技术路线TOPCon vs HJT」等话题测试，搜索结果较稳定
-
 ## 系统架构
 
 ### Agent 流水线

@@ -8,17 +8,17 @@ from app.agent.llm import model
 from app.agent.state import ResearchState
 from app.prompt.prompts import SYNTHESIZER_PROMPT
 
-SYNTH_TIMEOUT = 90  # 报告生成超时（秒）
+SYNTH_TIMEOUT = 60  # 报告生成超时（秒）
 
 
 async def synthesizer_node(state: ResearchState, runtime: Runtime) -> dict:
     writer = runtime.stream_writer
     writer({"type": "progress", "node": "synthesizer", "status": "running"})
 
-    # 裁剪 evidence 到前 10 条（避免 Prompt 过长导致 LLM 超时）
-    verified = (state.get("verified_facts") or [])[:10]
-    rejected = (state.get("rejected_facts") or [])[:5]
-    evidence_pool = (state.get("evidence_pool") or [])[:10]
+    # 裁剪 evidence（DeepSeek 对大 Prompt 极慢，只取最关键的几条）
+    evidence_pool = (state.get("evidence_pool") or [])[:6]
+    verified = (state.get("verified_facts") or []) or evidence_pool[:3]
+    rejected = (state.get("rejected_facts") or [])[:3]
 
     prompt_text = SYNTHESIZER_PROMPT.format(
         research_topic=state["research_topic"],

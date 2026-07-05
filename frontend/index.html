@@ -234,40 +234,51 @@ function closeTab(i) {
 }
 
 function renderTabContent() {
-  const t = tabs[activeTab];
-  $('tabContents').innerHTML = tabs.map((t,i) => `
-    <div class="tab-content ${i===activeTab?'active':''}" id="tab-${i}">
-      <div class="input-area">
-        <input id="topicInput-${i}" placeholder="输入调研主题，例如：2026年中国新能源汽车市场竞争格局" value="${escHtml(t.topic)}" ${t.running?'disabled':''} />
-        <select id="maxIter-${i}" ${t.running?'disabled':''}>
-          <option value="1">1轮</option><option value="2">2轮</option><option value="3" selected>3轮</option><option value="4">4轮</option><option value="5">5轮</option>
-        </select>
-        <button id="submitBtn-${i}" onclick="startResearch(${i})" ${t.running?'disabled':''}>${t.running?'🔄 研搜中…':'🔍 开始调研'}</button>
-      </div>
-      <div class="status-bar">
-        <span><span class="status-dot ${t.running?'running':'done'}"></span>${t.running?'研搜中':'待命'}</span>
-        <span>⏱️ <b>${t.timerStart?timerDisplay(t):'00:00'}</b></span>
-        <span>📊 轮次: <b>${t.iteration}</b></span>
-        <span>📄 证据: <b>${t.evidence}</b></span>
-        <span>⭐ 质量: <b>${t.quality}</b></span>
-      </div>
-      <div class="progress-panel"><h3>📡 实时执行轨迹</h3>${t.progressHTML||'<div style="color:#484f58;font-size:12px;padding:8px">等待执行…</div>'}</div>
-      ${t.reportHTML || (i===0 ? `<div class="empty-state">
-        <p><b>输入调研主题，开始自动化深度调研</b></p>
-        <div class="example-bar">
-          <button class="example-btn" onclick="setTopic(${i},'2026年中国新能源汽车市场竞争格局')">新能源汽车</button>
-          <button class="example-btn" onclick="setTopic(${i},'AI芯片市场2026 NVIDIA AMD Intel')">AI芯片</button>
-          <button class="example-btn" onclick="setTopic(${i},'光伏产业技术路线TOPCon vs HJT')">光伏产业</button>
-          <button class="example-btn" onclick="setTopic(${i},'半导体供应链')">半导体</button>
-          <button class="example-btn" onclick="setTopic(${i},'氢能产业链投资机会2026')">氢能</button>
+  const container = $('tabContents');
+  // 只渲染不存在或需要更新的标签页
+  tabs.forEach((t, i) => {
+    const existing = document.getElementById(`tab-${i}`);
+    const isActive = i === activeTab;
+    if (!existing || (isActive && t.running)) {
+      // 重新渲染这个标签
+      const div = existing || document.createElement('div');
+      div.className = `tab-content ${isActive ? 'active' : ''}`;
+      div.id = `tab-${i}`;
+      div.innerHTML = `
+        <div class="input-area">
+          <input id="topicInput-${i}" placeholder="输入调研主题，例如：2026年中国新能源汽车市场竞争格局" value="${escHtml(t.topic)}" ${t.running?'disabled':''} />
+          <select id="maxIter-${i}" ${t.running?'disabled':''}>
+            <option value="1">1轮</option><option value="2">2轮</option><option value="3" selected>3轮</option><option value="4">4轮</option><option value="5">5轮</option>
+          </select>
+          <button id="submitBtn-${i}" onclick="startResearch(${i})" ${t.running?'disabled':''}>${t.running?'🔄 研搜中…':'🔍 开始调研'}</button>
         </div>
-      </div>` : '')}
-    </div>
-  `).join('');
-  // 绑定事件
-  tabs.forEach((_,i) => {
-    const inp = document.getElementById(`topicInput-${i}`);
-    if(inp) inp.addEventListener('keydown', e => { if(e.key==='Enter') startResearch(i); });
+        <div class="status-bar">
+          <span><span class="status-dot ${t.running?'running':'done'}"></span>${t.running?'研搜中':'待命'}</span>
+          <span>⏱️ <b id="timer-${i}">${t.timerStart?timerDisplay(t):'00:00'}</b></span>
+          <span>📊 轮次: <b id="iter-${i}">${t.iteration}</b></span>
+          <span>📄 证据: <b id="evid-${i}">${t.evidence}</b></span>
+          <span>⭐ 质量: <b id="qual-${i}">${t.quality}</b></span>
+        </div>
+        <div class="progress-panel" id="prog-${i}"><h3>📡 实时执行轨迹</h3>${t.progressHTML||'<div style="color:#484f58;font-size:12px;padding:8px">等待执行…</div>'}</div>
+        <div id="report-${i}">${t.reportHTML || (i===0 ? `<div class="empty-state">
+          <p><b>输入调研主题，开始自动化深度调研</b></p>
+          <div class="example-bar">
+            <button class="example-btn" onclick="setTopic(${i},'2026年中国新能源汽车市场竞争格局')">新能源汽车</button>
+            <button class="example-btn" onclick="setTopic(${i},'AI芯片市场2026 NVIDIA AMD Intel')">AI芯片</button>
+            <button class="example-btn" onclick="setTopic(${i},'光伏产业技术路线TOPCon vs HJT')">光伏产业</button>
+            <button class="example-btn" onclick="setTopic(${i},'半导体供应链')">半导体</button>
+            <button class="example-btn" onclick="setTopic(${i},'氢能产业链投资机会2026')">氢能</button>
+          </div>
+        </div>` : '')}</div>
+      `;
+      if (!existing) container.appendChild(div);
+      // 绑定回车事件
+      const inp = document.getElementById(`topicInput-${i}`);
+      if (inp) inp.onkeydown = e => { if (e.key === 'Enter') startResearch(i); };
+    }
+    // 切换可见性
+    const el = document.getElementById(`tab-${i}`);
+    if (el) el.className = `tab-content ${isActive ? 'active' : ''}`;
   });
 }
 
@@ -300,40 +311,34 @@ async function startResearch(i) {
   t.timer = setInterval(() => { if(t.running) renderTabContent(); }, 1000);
   renderTabs(); renderTabContent();
 
-  const progressDiv = document.querySelector(`#tab-${i} .progress-panel`);
+  const progressDiv = document.getElementById(`prog-${i}`);
   function addProgressHTML(node, status, extra) {
     const icons = {planner:'🧠',search:'🔍',critic:'🔬',synthesizer:'📝'};
     const names = {planner:'任务规划',search:'信息检索',critic:'质量审核',synthesizer:'报告生成'};
     const runningText = {planner:'拆解问题中…',search:'并发搜索中…',critic:'评估证据中…',synthesizer:'撰写报告中…'};
     const doneText = {planner:'规划完成',search:'检索完成',critic:'审核完成',synthesizer:'报告生成'};
-    const info = names[node]||{};
     let detail = '';
     if(extra && status==='success'){
       const p=[]; if(extra.plan_count) p.push(`拆解${extra.plan_count}子问题`);
       if(extra.query_count) p.push(`${extra.query_count}条搜索`);
       if(extra.total_count!=null) p.push(`证据池${extra.total_count}条`);
-      if(extra.new_count!=null) p.push(`+${extra.new_count}新增`);
       if(extra.quality_score!=null) p.push(`质量${Number(extra.quality_score).toFixed(2)}`);
       if(extra.report_ready!=null) p.push(extra.report_ready?'✅证据充分':'🔄需补充');
       if(extra.iteration!=null) p.push(`第${extra.iteration}轮`);
       detail=p.join(' · ');
     }
     const icon = icons[node]||'📌', name = names[node]||node;
-    if(status==='running') {
+    if(status==='running'){
       t.progressHTML += `<div class="progress-item"><span class="progress-node">${icon} ${name}</span><span class="progress-status">⏳ ${runningText[node]||'执行中…'}</span></div>`;
     } else {
-      // 更新最新一条
       const lines = t.progressHTML.split('\n');
       const lastIdx = lines.findLastIndex(l=>l.includes(name));
-      if(lastIdx>=0) {
-        lines[lastIdx] = `<div class="progress-item"><span class="progress-node">${icon} ${name}</span><span class="progress-status success">✅ ${doneText[node]||'完成'}</span>${detail?`<span class="progress-detail">${detail}</span>`:''}</div>`;
-        t.progressHTML = lines.join('\n');
-      } else {
-        t.progressHTML += `<div class="progress-item"><span class="progress-node">${icon} ${name}</span><span class="progress-status success">✅ ${doneText[node]||'完成'}</span>${detail?`<span class="progress-detail">${detail}</span>`:''}</div>`;
-      }
+      const newLine = `<div class="progress-item"><span class="progress-node">${icon} ${name}</span><span class="progress-status success">✅ ${doneText[node]||'完成'}</span>${detail?`<span class="progress-detail">${detail}</span>`:''}</div>`;
+      if(lastIdx>=0) lines[lastIdx] = newLine; else t.progressHTML += newLine;
     }
-    renderTabContent();
-    const pd = document.querySelector(`#tab-${i} .progress-panel`);
+    // 直接更新 DOM（不重渲染整个标签页）
+    const pd = document.getElementById(`prog-${i}`);
+    if(pd) pd.innerHTML = `<h3>📡 实时执行轨迹</h3>${t.progressHTML}`;
     if(pd) pd.scrollTop = pd.scrollHeight;
   }
 

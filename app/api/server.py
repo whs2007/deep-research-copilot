@@ -295,4 +295,4 @@ async def get_report(session_id: str, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.api.server:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("app.api.server:app", host="0.0.0.0", port=8002, reload=False)

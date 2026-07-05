@@ -96,14 +96,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 <!-- 登录弹窗 -->
 <div class="modal-overlay" id="loginModal">
   <div class="modal-box">
-    <h3>👤 登录 / 注册</h3>
+    <h3>🔐 登录深度研报</h3>
     <input id="loginUser" placeholder="用户名" />
     <input id="loginPw" type="password" placeholder="密码" />
     <div class="modal-err" id="loginErr"></div>
     <button onclick="doLogin()">🔑 登录</button>
-    <button onclick="doRegister()">📝 注册</button>
-    <button class="alt" onclick="doGuest()">👻 游客模式</button>
-    <button class="alt" onclick="hideLogin()">✕ 取消</button>
+    <button onclick="doRegister()">📝 注册新账号</button>
   </div>
 </div>
 
@@ -112,7 +110,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
   <h1>深度研报</h1>
   <span>AI 企业调研助手</span>
   <span style="margin-left:auto;font-size:11px;color:#484f58" id="userBadge">未登录</span>
-  <button onclick="showLogin()" style="padding:4px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e1e4e8;font-size:11px;cursor:pointer">👤 登录</button>
+  <button id="loginBtn" onclick="showLogin()" style="padding:4px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e1e4e8;font-size:11px;cursor:pointer">👤 登录</button>
+  <button id="logoutBtn" onclick="doLogout()" style="padding:4px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#f85149;font-size:11px;cursor:pointer;display:none">🚪 退出</button>
   <span style="font-size:11px" id="connStatus">⚫</span>
 </div>
 
@@ -162,6 +161,7 @@ async function doLogin() {
     const d = await r.json();
     USER_ID = d.user_id; USER_TOKEN = d.token; saveState();
     $('userBadge').textContent = '👤 '+d.display_name;
+    $('loginBtn').style.display='none'; $('logoutBtn').style.display='';
     hideLogin(); loadHistory();
   } catch(e) { $('loginErr').textContent = e.message; }
 }
@@ -186,23 +186,24 @@ async function doGuest() {
     const d = await r.json();
     USER_ID = d.user_id; USER_TOKEN = d.token; saveState();
     $('userBadge').textContent = '👤 '+d.display_name;
+    $('loginBtn').style.display='none'; $('logoutBtn').style.display='';
     hideLogin(); loadHistory();
   } catch(e) { $('loginErr').textContent = '游客模式暂不可用'; }
 }
 
-// 自动登录
+// 自动登录（有token则验证，无则弹登录框）
 (async function(){
   if(USER_ID && USER_TOKEN) {
     try {
       const r = await fetch(`${API}/api/user`,{headers:{'X-User-ID':USER_ID}});
-      if(r.ok){ const d = await r.json(); $('userBadge').textContent='👤 '+d.display_name; loadHistory(); return; }
+      if(r.ok){ const d = await r.json(); $('userBadge').textContent='👤 '+d.display_name; $('loginBtn').style.display='none'; $('logoutBtn').style.display=''; loadHistory(); return; }
     } catch(e){}
   }
-  // 默认游客
-  if(!USER_ID) { USER_ID='guest_'+Date.now(); USER_TOKEN=USER_ID; saveState(); }
-  $('userBadge').textContent = '👤 游客';
-  loadHistory();
+  // 未登录 → 显示登录框
+  showLogin();
 })();
+
+function doLogout(){ USER_ID=''; USER_TOKEN=''; localStorage.removeItem('deepresearch_uid'); localStorage.removeItem('deepresearch_token'); $('userBadge').textContent='未登录'; $('loginBtn').style.display=''; $('logoutBtn').style.display='none'; $('sidebarList').innerHTML='<div class="sidebar-empty">请先登录</div>'; showLogin(); }
 
 // ═══ 标签页 ═══
 function renderTabs() {

@@ -6,9 +6,9 @@
 
 ## 截图
 
-| 最终报告 | 测试 |
-|---------|------|
-| ![报告](docs/images/report-full.png) | ![pytest](docs/images/test-pytest.png) |
+| 首页空 | 输入调研 | 最终报告 | 测试 |
+|--------|---------|---------|------|
+| ![首页空](docs/images/homepage-empty.png) | ![输入](docs/images/homepage-input.png) | ![报告](docs/images/report-full.png) | ![pytest](docs/images/test-pytest.png) |
 
 ### 界面截图获取指南
 
@@ -23,9 +23,7 @@
 
 | 截图文件名 | 操作方式 | 应捕捉的画面 |
 |-----------|---------|-------------|
-| `homepage-empty.png` | 打开 `/ui`，不输入任何内容 | 空首页：暗色主题，顶部栏「深度研报」，左侧「历史对话」空列表，中央输入框 + 5 个示例按钮（新能源汽车/AI芯片/光伏产业/半导体/氢能） |
 | `homepage-examples.png` | 点击某个示例按钮（如「新能源汽车」） | 输入框自动填入示例话题文本，按钮仍可点击 |
-| `homepage-input.png` | 手动在输入框中输入一个调研主题 | 输入框显示已输入的文字，光标闪烁 |
 | `progress-searching.png` | 点击「开始调研」，等 Search 节点执行 | 状态栏圆点变为黄色脉动，进度面板出现 `🔍 信息检索 ⏳ 并发搜索中…` |
 | `progress-critic.png` | 等待 Critic 节点执行 | 进度面板出现 `🔬 质量审核` 行，状态栏显示轮次/证据数/质量分 |
 | `progress-synthesizer.png` | 等待 Synthesizer 节点执行 | 进度面板出现 `📝 报告生成 ⏳ 撰写报告中…` |

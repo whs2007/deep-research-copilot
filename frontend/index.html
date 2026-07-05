@@ -294,6 +294,7 @@ function setTopic(i, topic) {
 }
 
 function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setEl(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
 
 // ═══ 调研 ═══
 async function startResearch(i) {

@@ -240,7 +240,7 @@ function renderTabContent() {
   tabs.forEach((t, i) => {
     const existing = document.getElementById(`tab-${i}`);
     const isActive = i === activeTab;
-    if (!existing || (isActive && t.running)) {
+    if (!existing || isActive) {
       // 重新渲染这个标签
       const div = existing || document.createElement('div');
       div.className = `tab-content ${isActive ? 'active' : ''}`;

@@ -407,18 +407,30 @@ async function loadHistory() {
         <div class="si-meta"><span>⭐<b>${(r.fact_quality_score||0).toFixed(2)}</b></span><span>📄<b>${r.evidence_count||0}</b></span><span>🔄<b>${r.iteration_count||0}轮</b></span></div>
         <div class="si-meta">${(r.created_at||'').slice(0,16)}</div>
       </div>`).join('');
-  } catch(e) { list.innerHTML = `<div class="sidebar-empty">加载失败</div>`; }
+  } catch(e) { list.innerHTML = `<div class="sidebar-empty">加载失败<br><small>${escHtml(e.message)}</small><br><button onclick="loadHistory()" style="margin-top:8px;padding:4px 12px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;cursor:pointer;font-size:11px">🔄 重试</button></div>`; }
 }
 
 async function viewReport(sid) {
   try {
-    newTab(); const i = activeTab; tabs[i].reportHTML = '<p style="color:#8b949e">加载中…</p>'; renderTabContent();
-    const r = await (await fetch(`${API}/api/report/${sid}`,{headers:{'X-User-ID':USER_ID}})).json();
-    tabs[i].reportHTML = renderMarkdown(r.final_report||'');
+    newTab(); const i = activeTab;
+    // 直接更新tab状态，不重渲染(避免DOM丢失)
+    tabs[i].reportHTML = '<p style="color:#8b949e">加载中…</p>';
+    tabs[i].topic = '加载中…';
+    renderTabs();
+    // 渲染新tab的DOM
+    renderTabContent();
+    // 获取报告
+    const resp = await fetch(`${API}/api/report/${sid}`,{headers:{'X-User-ID':USER_ID}});
+    if(!resp.ok) throw new Error('报告不存在');
+    const r = await resp.json();
+    tabs[i].reportHTML = renderMarkdown(r.final_report||'报告为空');
     tabs[i].topic = r.topic; tabs[i].iteration = r.iteration_count||'-';
     tabs[i].evidence = r.evidence_count||'-'; tabs[i].quality = (r.fact_quality_score||0).toFixed(2);
     renderTabs(); renderTabContent();
-  } catch(e) { tabs[activeTab].reportHTML = `<p style="color:#f85149">加载失败</p>`; renderTabContent(); }
+  } catch(e) {
+    tabs[activeTab].reportHTML = `<p style="color:#f85149">加载失败: ${escHtml(e.message)}</p>`;
+    renderTabContent();
+  }
 }
 
 function renderMarkdown(md) {

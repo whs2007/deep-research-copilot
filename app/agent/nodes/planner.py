@@ -1,12 +1,14 @@
 """
-Planner Agent — 调研问题拆解与搜索规划
+Planner Agent — 调研问题拆解与搜索规划（含超时降级）
 """
-import json
+import json, asyncio
 from langgraph.runtime import Runtime
 from langchain_core.messages import HumanMessage
 from app.agent.llm import model
 from app.agent.state import ResearchState
 from app.prompt.prompts import PLANNER_PROMPT
+
+PLANNER_TIMEOUT = 20
 
 
 async def planner_node(state: ResearchState, runtime: Runtime) -> dict:
@@ -19,7 +21,6 @@ async def planner_node(state: ResearchState, runtime: Runtime) -> dict:
             writer({"type": "progress", "node": "planner", "status": "complete"})
             return {"report_ready": True, "iteration_count": state["iteration_count"]}
 
-    # 使用 Python 原生 .format() 替代 LangChain PromptTemplate
     prompt_text = PLANNER_PROMPT.format(
         research_topic=state["research_topic"],
         evidence_count=len(state.get("evidence_pool", [])),
@@ -27,9 +28,16 @@ async def planner_node(state: ResearchState, runtime: Runtime) -> dict:
         iteration_count=state.get("iteration_count", 0),
         max_iterations=state.get("max_iterations", 3),
     )
-    resp = await model.ainvoke([HumanMessage(content=prompt_text)])
-    # 从 LLM 响应中提取 JSON
-    result = _extract_json(resp.content)
+    try:
+        resp = await asyncio.wait_for(
+            model.ainvoke([HumanMessage(content=prompt_text)]),
+            timeout=PLANNER_TIMEOUT,
+        )
+        result = _extract_json(resp.content)
+    except (asyncio.TimeoutError, Exception):
+        # 超时/异常 → 返回空计划(触发回流或终止)
+        writer({"type": "progress", "node": "planner", "status": "complete", "plan_count": 0, "query_count": 0})
+        return {"research_plan": [], "search_queries": [], "report_ready": state.get("iteration_count", 0) > 0}
     queries = result.get("search_queries", [])
     writer({"type": "progress", "node": "planner", "status": "complete",
             "plan_count": len(result.get("research_plan", [])), "query_count": len(queries)})

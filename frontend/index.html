@@ -62,7 +62,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e
 .progress-status.error{color:#f85149}
 .progress-detail{color:#484f58;font-size:11px;margin-top:2px;flex:1}
 
-.report-panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;line-height:1.7}
+.report-panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;line-height:1.7;max-height:55vh;overflow-y:auto}
+.report-panel::-webkit-scrollbar{width:5px}
+.report-panel::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
 .report-panel h1{font-size:20px;color:#58a6ff;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #30363d}
 .report-panel h2{font-size:16px;color:#e1e4e8;margin:16px 0 8px}
 .report-panel h3{font-size:14px;color:#8b949e;margin:12px 0 6px}

@@ -294,5 +294,7 @@ async def get_report(session_id: str, db: Session = Depends(get_db)):
 
 
 if __name__ == "__main__":
+    # 开发: python run.py (一键启动 Docker+API)
+    # 仅API: python -m uvicorn app.api.server:app --port 8002
     import uvicorn
     uvicorn.run("app.api.server:app", host="0.0.0.0", port=8002, reload=False)

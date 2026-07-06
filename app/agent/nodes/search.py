@@ -75,13 +75,21 @@ async def search_node(state: ResearchState, runtime: Runtime) -> dict:
         cache_tavily_result = lambda _a, _b: None
 
     async def _search_one(q: dict, llm_model) -> list[dict]:
-        """单条查询：Tavily → 直接转 Evidence（不调LLM整理, 省token）"""
+        """单条查询：Tavily → 直接转 Evidence"""
         query_text = q.get("query", "")
         if not query_text: return []
 
+        # 实时推送：正在搜索什么
+        writer({"type": "progress", "node": "search", "status": "query",
+                "query": query_text[:60]})
+
         try:
             cached = get_cached_tavily_result(query_text)
-            if cached: return _tavily_to_evidence(cached, query_text)
+            if cached:
+                ev = _tavily_to_evidence(cached, query_text)
+                writer({"type": "progress", "node": "search", "status": "found",
+                        "query": query_text[:40], "count": len(ev), "cached": True})
+                return ev
         except Exception: pass
 
         for attempt in range(MAX_RETRIES + 1):
@@ -93,8 +101,10 @@ async def search_node(state: ResearchState, runtime: Runtime) -> dict:
                 if not raw: continue
                 try: cache_tavily_result(query_text, raw)
                 except Exception: pass
-                # 直接转Evidence, 不调LLM（省token——Critic会做评估）
-                return _tavily_to_evidence(raw, query_text)
+                ev = _tavily_to_evidence(raw, query_text)
+                writer({"type": "progress", "node": "search", "status": "found",
+                        "query": query_text[:40], "count": len(ev)})
+                return ev
             except asyncio.TimeoutError:
                 if attempt < MAX_RETRIES: await asyncio.sleep(0.5 * (attempt + 1))
             except Exception as e:

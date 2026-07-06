@@ -320,14 +320,31 @@ async function startResearch(i) {
     const names = {planner:'任务规划',search:'信息检索',critic:'质量审核',synthesizer:'报告生成'};
     const runningText = {planner:'拆解问题中…',search:'并发搜索中…',critic:'评估证据中…',synthesizer:'撰写报告中…'};
     const doneText = {planner:'规划完成',search:'检索完成',critic:'审核完成',synthesizer:'报告生成'};
+
+    // 特殊处理：plan_query 状态（展示Planner拆解出的搜索词）
+    if(status==='plan_query' && extra && extra.query){
+      t.progressHTML += `<div class="progress-item"><span class="progress-node">📋 计划</span><span class="progress-status">🔎 "${escHtml(extra.query)}"</span></div>`;
+      updateProgDOM(); return;
+    }
+    // 特殊处理：query/found 状态（展示具体搜索词和结果数）
+    if(status==='query' && extra && extra.query){
+      t.progressHTML += `<div class="progress-item"><span class="progress-node">🔎 搜索中</span><span class="progress-status">🔎 "${escHtml(extra.query)}"</span></div>`;
+      updateProgDOM(); return;
+    }
+    if(status==='found' && extra && extra.query){
+      t.progressHTML += `<div class="progress-item"><span class="progress-node">📰 发现</span><span class="progress-status success">+${extra.count||0}条 · ${escHtml(extra.query)}${extra.cached?' 💾':''}</span></div>`;
+      updateProgDOM(); return;
+    }
+
     let detail = '';
     if(extra && status==='success'){
       const p=[]; if(extra.plan_count) p.push(`拆解${extra.plan_count}子问题`);
       if(extra.query_count) p.push(`${extra.query_count}条搜索`);
-      if(extra.total_count!=null) p.push(`证据池${extra.total_count}条`);
-      if(extra.quality_score!=null) p.push(`质量${Number(extra.quality_score).toFixed(2)}`);
-      if(extra.report_ready!=null) p.push(extra.report_ready?'✅证据充分':'🔄需补充');
-      if(extra.iteration!=null) p.push(`第${extra.iteration}轮`);
+      if(extra.total_count!=null) p.push(`共找到${extra.total_count}条证据`);
+      if(extra.new_count!=null) p.push(`本轮新增${extra.new_count}条`);
+      if(extra.quality_score!=null) p.push(`质量评分${Number(extra.quality_score).toFixed(2)}`);
+      if(extra.report_ready!=null) p.push(extra.report_ready?'✅证据充分，进入报告':'🔄证据不足，补充搜索中…');
+      if(extra.iteration!=null) p.push(`第${extra.iteration}轮完成`);
       detail=p.join(' · ');
     }
     const icon = icons[node]||'📌', name = names[node]||node;
@@ -339,10 +356,11 @@ async function startResearch(i) {
       const newLine = `<div class="progress-item"><span class="progress-node">${icon} ${name}</span><span class="progress-status success">✅ ${doneText[node]||'完成'}</span>${detail?`<span class="progress-detail">${detail}</span>`:''}</div>`;
       if(lastIdx>=0) lines[lastIdx] = newLine; else t.progressHTML += newLine;
     }
-    // 直接更新 DOM（不重渲染整个标签页）
+    updateProgDOM();
+  }
+  function updateProgDOM(){
     const pd = document.getElementById(`prog-${i}`);
-    if(pd) pd.innerHTML = `<h3>📡 实时执行轨迹</h3>${t.progressHTML}`;
-    if(pd) pd.scrollTop = pd.scrollHeight;
+    if(pd) { pd.innerHTML = `<h3>📡 实时执行轨迹</h3>${t.progressHTML}`; pd.scrollTop = pd.scrollHeight; }
   }
 
   try {

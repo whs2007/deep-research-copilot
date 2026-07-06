@@ -39,6 +39,10 @@ async def planner_node(state: ResearchState, runtime: Runtime) -> dict:
         writer({"type": "progress", "node": "planner", "status": "complete", "plan_count": 0, "query_count": 0})
         return {"research_plan": [], "search_queries": [], "report_ready": state.get("iteration_count", 0) > 0}
     queries = result.get("search_queries", [])
+    # 推送每个搜索词给前端展示
+    for q in queries[:5]:
+        writer({"type": "progress", "node": "planner", "status": "plan_query",
+                "query": q.get("query", "")[:60]})
     writer({"type": "progress", "node": "planner", "status": "complete",
             "plan_count": len(result.get("research_plan", [])), "query_count": len(queries)})
     return {"research_plan": result.get("research_plan", []), "search_queries": queries}

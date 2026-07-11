@@ -14,7 +14,8 @@ CONTAINERS = {
 }
 
 def run(cmd, check=True):
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=check)
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True,
+                          encoding='utf-8', errors='replace', check=check)
 
 def container_running(name):
     r = run(f"docker inspect -f '{{{{.State.Running}}}}' {name}", check=False)

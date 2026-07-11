@@ -137,7 +137,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # 前端静态文件（通过 /ui 访问，避免与 API 路由冲突）
 frontend_path = Path(__file__).parent.parent.parent / "frontend"
 if frontend_path.exists():
-    
+
     from fastapi.staticfiles import StaticFiles
     app.mount("/ui", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
     logger.info(f"前端静态文件已挂载: http://localhost:8001/ui")
